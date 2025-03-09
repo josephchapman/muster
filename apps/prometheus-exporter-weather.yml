@@ -4,6 +4,8 @@ kind: Application
 metadata:
   name: prometheus-exporter-weather
   namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
 spec:
   destination:
     namespace: datasources

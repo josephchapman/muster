@@ -1,10 +1,8 @@
 ---
 apiVersion: helm.crossplane.io/v1beta1
-kind: ProviderConfig    # fails until Provider is installed
+kind: ProviderConfig
 metadata:
   name: provider-helm
-  annotations:
-    argocd.argoproj.io/sync-wave: "2"
 spec:
   credentials:
     source: InjectedIdentity
