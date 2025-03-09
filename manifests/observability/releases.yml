@@ -1,0 +1,26 @@
+---
+apiVersion: helm.crossplane.io/v1beta1
+kind: Release
+metadata:
+  name: prometheus
+  namespace: observability
+spec:
+  providerConfigRef:
+    name: provider-helm
+  forProvider:
+    chart:
+      name: prometheus
+      repository: https://prometheus-community.github.io/helm-charts
+      version: 25.0.0
+    namespace: observability
+    values:
+      extraScrapeConfigs: |
+        - job_name: weather
+          honor_timestamps: true
+          scrape_interval: 60s
+          scrape_timeout: 10s
+          metrics_path: /metrics
+          scheme: http
+          static_configs:
+          - targets:
+            - prometheus-exporter-weather.datasources.svc.cluster.local:2112

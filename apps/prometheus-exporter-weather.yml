@@ -1,0 +1,21 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: prometheus-exporter-weather
+  namespace: argocd
+spec:
+  destination:
+    namespace: datasources
+    server: https://kubernetes.default.svc
+  project: default
+  source:
+    path: prometheus-exporter-weather/k8s
+    repoURL: https://github.com/josephchapman/datasources
+    targetRevision: HEAD
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

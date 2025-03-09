@@ -1,0 +1,33 @@
+{
+  "name": "Ubuntu",
+  "image": "ubuntu:jammy",
+  "remoteUser": "contend",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.profiles.linux": {
+          "bash": {
+            "path": "bash",
+            "icon": "terminal-bash"
+          }
+        },
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    }
+  },
+  "features": {
+    "./src/flux/": {},
+    "./src/helm/": {},
+    "./src/kubectl/": {},
+    "./src/user/": {
+      "username": "contend"
+    },
+    "./src/utils/": {}
+  },
+  "mounts": [
+    "source=${env:SSH_AUTH_SOCK},target=/ssh-agent,type=bind"
+  ],
+  "remoteEnv": {
+    "SSH_AUTH_SOCK": "/ssh-agent"
+  }
+}
