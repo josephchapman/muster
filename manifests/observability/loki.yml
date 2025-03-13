@@ -1,0 +1,101 @@
+---
+apiVersion: helm.crossplane.io/v1beta1
+kind: Release
+metadata:
+  name: loki
+  namespace: observability
+spec:
+  providerConfigRef:
+    name: provider-helm
+  forProvider:
+    chart:
+      name: loki
+      repository: https://grafana.github.io/helm-charts
+      version: 6.28.0
+    namespace: observability
+    values:
+      loki:
+        auth_enabled: false # single-tenant mode
+        limits_config:
+          allow_structured_metadata: true
+        commonConfig:
+          replication_factor: 1
+        storage:
+          type: filesystem
+        schemaConfig:
+          configs:
+            - from: 2024-04-01
+              store: tsdb
+              object_store: filesystem
+              schema: v13
+              index:
+                prefix: loki_index_
+                period: 24h
+        ingester:
+          chunk_encoding: snappy
+        tracing:
+          enabled: true
+        querier:
+          max_concurrent: 2
+      deploymentMode: SingleBinary
+      singleBinary:
+        replicas: 1
+        persistence:
+          # Currently using `local` type PVs, which can't handle pod security context, resulting in `permission denied` errors when trying to write to the PVC.
+          # The `persistence:true` field creates a PVC named storage and mounts it to `/var/loki`
+          # Until a different storage option is used, `persistence` is disabled, and an `extraVolume(Mount)s` takes its place
+          enabled: false
+          # size: 10Gi
+        extraVolumes:
+          - name: storage
+            emptyDir: {}
+        extraVolumeMounts:
+          - name: storage
+            mountPath: /var/loki
+        resources:
+          limits:
+            cpu: 3
+            memory: 4Gi
+          requests:
+            cpu: 2
+            memory: 2Gi
+        extraEnv:
+          # Keep a little bit lower than memory limits
+          - name: GOMEMLIMIT
+            value: 3750MiB
+      chunksCache:
+        enabled: false # Default settings when enabled creates a pod that requests 10Gi RAM
+      minio:
+        enabled: false
+      test:
+        enabled: false
+      lokiCanary:
+        enabled: false
+      ruler:
+        enabled: false
+        persistence:
+          enabled: false
+      backend:
+        replicas: 0
+      read:
+        replicas: 0
+      write:
+        replicas: 0
+      ingester:
+        replicas: 0
+      querier:
+        replicas: 0
+      queryFrontend:
+        replicas: 0
+      queryScheduler:
+        replicas: 0
+      distributor:
+        replicas: 0
+      compactor:
+        replicas: 0
+      indexGateway:
+        replicas: 0
+      bloomCompactor:
+        replicas: 0
+      bloomGateway:
+        replicas: 0

@@ -1,0 +1,37 @@
+---
+apiVersion: helm.crossplane.io/v1beta1
+kind: Release
+metadata:
+  name: opentelemetry-collector
+  namespace: observability
+spec:
+  providerConfigRef:
+    name: provider-helm
+  forProvider:
+    chart:
+      name: opentelemetry-collector
+      repository: https://open-telemetry.github.io/opentelemetry-helm-charts
+      version: 0.117.3
+    namespace: observability
+    values:
+      image:
+        repository: otel/opentelemetry-collector-k8s # must be set
+      # this example
+      # https://opentelemetry.io/docs/platforms/kubernetes/helm/collector/#logs-collection-preset
+      mode: daemonset
+
+      presets:
+        logsCollection:
+          enabled: true
+          includeCollectorLogs: false
+
+      config:
+        exporters:
+          otlphttp:
+            endpoint: http://loki.observability.svc.cluster.local:3100/otlp
+        service:
+          pipelines:
+            logs:
+              exporters:
+                - otlphttp
+

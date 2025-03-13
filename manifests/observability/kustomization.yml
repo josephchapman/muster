@@ -4,4 +4,7 @@ kind: Kustomization
 resources:
   - namespace.yml
   - persistent-volumes.yml
+  - loki.yml
+  - otel.yml
   - releases.yml
+  - grafana.yml
