@@ -21,9 +21,11 @@ spec:
             - name: Prometheus
               type: prometheus
               url: http://prometheus-server.observability.svc.cluster.local/
+              uid: "ERgg9hAnMdw4Lpf9"
             - name: Loki
               type: loki
               url: http://loki-gateway.observability.svc.cluster.local/
+              uid: "ew4xLMxwfh3Yq3iA"
       dashboardProviders:
         dashboardproviders.yaml:
           apiVersion: 1
@@ -33,7 +35,7 @@ spec:
             folder: ''
             type: file
             disableDeletion: false
-            editable: true
+            allowUiUpdates: true
             options:
               path: /var/lib/grafana/dashboards/default
 
@@ -126,7 +128,7 @@ data:
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "ERgg9hAnMdw4Lpf9"
           },
           "fieldConfig": {
             "defaults": {
@@ -211,7 +213,7 @@ data:
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "${DS_PROMETHEUS}"
+                "uid": "ERgg9hAnMdw4Lpf9"
               },
               "disableTextWrap": false,
               "editorMode": "builder",
@@ -227,7 +229,7 @@ data:
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "${DS_PROMETHEUS}"
+                "uid": "ERgg9hAnMdw4Lpf9"
               },
               "disableTextWrap": false,
               "editorMode": "builder",
@@ -248,7 +250,7 @@ data:
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "ERgg9hAnMdw4Lpf9"
           },
           "fieldConfig": {
             "defaults": {
@@ -333,7 +335,7 @@ data:
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "${DS_PROMETHEUS}"
+                "uid": "ERgg9hAnMdw4Lpf9"
               },
               "disableTextWrap": false,
               "editorMode": "builder",
@@ -349,7 +351,7 @@ data:
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "${DS_PROMETHEUS}"
+                "uid": "ERgg9hAnMdw4Lpf9"
               },
               "disableTextWrap": false,
               "editorMode": "builder",
@@ -370,7 +372,7 @@ data:
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "ERgg9hAnMdw4Lpf9"
           },
           "fieldConfig": {
             "defaults": {
@@ -455,7 +457,7 @@ data:
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "${DS_PROMETHEUS}"
+                "uid": "ERgg9hAnMdw4Lpf9"
               },
               "disableTextWrap": false,
               "editorMode": "builder",
@@ -471,7 +473,7 @@ data:
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "${DS_PROMETHEUS}"
+                "uid": "ERgg9hAnMdw4Lpf9"
               },
               "disableTextWrap": false,
               "editorMode": "builder",
@@ -492,7 +494,7 @@ data:
         {
           "datasource": {
             "type": "loki",
-            "uid": "${DS_LOKI}"
+            "uid": "ew4xLMxwfh3Yq3iA"
           },
           "gridPos": {
             "h": 5,
@@ -517,11 +519,11 @@ data:
             {
               "datasource": {
                 "type": "loki",
-                "uid": "${DS_LOKI}"
+                "uid": "ew4xLMxwfh3Yq3iA"
               },
               "direction": "backward",
               "editorMode": "builder",
-              "expr": "{k8s_container_name=\"prometheus-exporter-weather\"} |= ``",
+              "expr": "{k8s_pod_name=\"prometheus-exporter-weather\"} |= ``",
               "queryType": "range",
               "refId": "A"
             }
