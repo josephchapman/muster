@@ -7,4 +7,6 @@ resources:
   - loki.yml
   - otel.yml
   - prometheus.yml
+  - grafana-dashboard-weather.yml
+  - grafana-dashboard-speedrun.yml
   - grafana.yml
