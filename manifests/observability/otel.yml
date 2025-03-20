@@ -16,11 +16,10 @@ spec:
     values:
       image:
         repository: otel/opentelemetry-collector-k8s # must be set
-      # this example
-      # https://opentelemetry.io/docs/platforms/kubernetes/helm/collector/#logs-collection-preset
       mode: daemonset
 
       # # Replacing the preset with manual equivalent
+      # https://opentelemetry.io/docs/platforms/kubernetes/helm/collector/#logs-collection-preset
       # presets:
       #   logsCollection:
       #     enabled: true
