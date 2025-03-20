@@ -20,18 +20,51 @@ spec:
       # https://opentelemetry.io/docs/platforms/kubernetes/helm/collector/#logs-collection-preset
       mode: daemonset
 
-      presets:
-        logsCollection:
-          enabled: true
-          includeCollectorLogs: false
+      # # Replacing the preset with manual equivalent
+      # presets:
+      #   logsCollection:
+      #     enabled: true
+      #     includeCollectorLogs: false
+
+      extraVolumes:
+        - name: varlogpods
+          hostPath:
+            path: /var/log/pods
+        - name: varlibdockercontainers
+          hostPath:
+            path: /var/lib/docker/containers
+
+      extraVolumeMounts:
+        - name: varlogpods
+          mountPath: /var/log/pods
+          readOnly: true
+        - name: varlibdockercontainers
+          mountPath: /var/lib/docker/containers
+          readOnly: true
 
       config:
+        receivers:
+          filelog:
+            include: [ /var/log/pods/*/*/*.log ]
+            exclude: [ /var/log/pods/observability_opentelemetry-collector-agent*_*/opentelemetry-collector/*.log ]
+            start_at: beginning
+            retry_on_failure:
+                enabled: true
+            include_file_path: true
+            include_file_name: false
+            operators:
+              # parse container logs
+              - type: container
+                id: container-parser
+                max_log_size: 102400
         exporters:
           otlphttp:
             endpoint: http://loki.observability.svc.cluster.local:3100/otlp
         service:
           pipelines:
             logs:
+              receivers:
+                - filelog
               exporters:
                 - otlphttp
 
