@@ -37,6 +37,9 @@ spec:
           enabled: true
         querier:
           max_concurrent: 2
+      gateway:
+        nginxConfig:
+          clientMaxBodySize: 8M
       deploymentMode: SingleBinary
       singleBinary:
         replicas: 1
