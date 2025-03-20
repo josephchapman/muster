@@ -16,7 +16,7 @@
     }
   },
   "features": {
-    "./src/flux/": {},
+    "./src/argocd_cli/": {},
     "./src/helm/": {},
     "./src/kubectl/": {},
     "./src/user/": {
