@@ -1,0 +1,30 @@
+---
+apiVersion: helm.crossplane.io/v1beta1
+kind: Release
+metadata:
+  name: spire-crds
+  namespace: security
+spec:
+  providerConfigRef:
+    name: provider-helm
+  forProvider:
+    chart:
+      name: spire-crds
+      repository: https://spiffe.github.io/helm-charts-hardened/
+      version: 0.5.0
+    namespace: security
+---
+apiVersion: helm.crossplane.io/v1beta1
+kind: Release
+metadata:
+  name: spire
+  namespace: security
+spec:
+  providerConfigRef:
+    name: provider-helm
+  forProvider:
+    chart:
+      name: spire
+      repository: https://spiffe.github.io/helm-charts-hardened/
+      version: 0.24.3
+    namespace: security
