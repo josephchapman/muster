@@ -11,7 +11,7 @@ spec:
   - ReadWriteOnce
   persistentVolumeReclaimPolicy: Delete
   local:
-    path: /var/lib/k8s-pv
+    path: /var/lib/k8s-pv/prometheus-server
   nodeAffinity:
     required:
       nodeSelectorTerms:
@@ -33,7 +33,7 @@ spec:
   - ReadWriteOnce
   persistentVolumeReclaimPolicy: Delete
   local:
-    path: /var/lib/k8s-pv
+    path: /var/lib/k8s-pv/storage-prometheus-alertmanager-0
   nodeAffinity:
     required:
       nodeSelectorTerms:
