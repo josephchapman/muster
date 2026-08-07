@@ -3,6 +3,30 @@
 cluster bootrapping
 
 
+## Requirements
+
+For clusters that did not create with argo-cd and crossplane, install them via helm.
+
+Add the repositories:
+```bash
+helm repo add argo https://argoproj.github.io/argo-helm
+helm repo add crossplane-stable https://charts.crossplane.io/stable
+helm repo update
+```
+
+Install:
+```bash
+helm upgrade --install argo-cd argo/argo-cd \
+  --namespace argocd \
+  --create-namespace \
+  --set crds.install=true
+
+helm upgrade --install crossplane-system crossplane-stable/crossplane \
+  --namespace crossplane-system \
+  --create-namespace \
+```
+
+
 ## Installation
 
 Create the ArgoCD 'App of Apps':
