@@ -1,0 +1,143 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: telegraf-config-watcher
+  namespace: observability
+---
+# ClusterRole allows watching ConfigMaps across ALL namespaces.
+# (Change to 'Role' and 'RoleBinding' if you only want to watch a single namespace)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: telegraf-config-watcher
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "watch", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: telegraf-config-watcher
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: telegraf-config-watcher
+subjects:
+  - kind: ServiceAccount
+    name: telegraf-config-watcher
+    namespace: observability
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: caddy-config
+  namespace: observability
+data:
+  Caddyfile: |
+    :80 {
+        root * /srv/telegraf
+        file_server
+    }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sidecar-concat-script
+  namespace: observability
+data:
+  concat.sh: |
+    #!/bin/sh
+    mkdir -p /srv/telegraf
+    cat /tmp/individual-configs/* > /srv/telegraf/telegraf.conf
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: telegraf-config-server
+  namespace: observability
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: telegraf-config-server
+  template:
+    metadata:
+      labels:
+        app: telegraf-config-server
+    spec:
+      serviceAccountName: telegraf-config-watcher
+      volumes:
+        # Shared in-memory volume between the sidecar and Caddy
+        - name: shared-config
+          emptyDir: {}
+        - name: caddyfile
+          configMap:
+            name: caddy-config
+        - name: script-vol
+          configMap:
+            name: sidecar-concat-script
+      containers:
+        # 1. Sidecar: Watches ConfigMaps and concatenates them into telegraf.conf
+        - name: configmap-sidecar
+          image: kiwigrid/k8s-sidecar:1.28.0
+          env:
+            - name: LABEL
+              value: "telegraf"
+            - name: LABEL_VALUE
+              value: "config"
+            - name: FOLDER
+              value: "/tmp/individual-configs"
+            - name: UNIQUE_FILENAMES
+              value: "true"
+            - name: NAMESPACE
+              value: "ALL" # Change to a specific namespace if desired
+            # Concatenates all extracted files into one single file
+            - name: SCRIPT
+              value: "/scripts/concat.sh"
+          resources:
+            limits:
+              cpu: "100m"
+              memory: "128Mi"
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+          volumeMounts:
+            - name: script-vol
+              mountPath: /scripts
+            - name: shared-config
+              mountPath: /srv/telegraf
+
+        # 2. Caddy: Serves the concatenated file over HTTP inside the cluster
+        - name: caddy
+          image: caddy:2-alpine
+          ports:
+            - containerPort: 80
+              name: http
+          resources:
+            limits:
+              cpu: "100m"
+              memory: "128Mi"
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+          volumeMounts:
+            - name: shared-config
+              mountPath: /srv/telegraf
+              readOnly: true
+            - name: caddyfile
+              mountPath: /etc/caddy/Caddyfile
+              subPath: Caddyfile
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: telegraf-config-service
+  namespace: observability
+spec:
+  selector:
+    app: telegraf-config-server
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80

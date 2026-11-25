@@ -1,189 +1,228 @@
 # muster
 
-cluster bootrapping
+cluster bootstrapping
 
 
-## Requirements
+## k3s examples
 
-For clusters that did not create with argo-cd and crossplane, install them via helm.
+Write the following manifests to the k3s provisioning directory:
+```
+/var/lib/rancher/k3s/server/manifests/
+```
 
-Add the repositories:
+This can be automated via `cloud-init` or Rancher-Desktop, as detailed in the [Methods](#methods) section.
+
+### Manifests
+
+#### Crossplane
+
+```yaml
+---
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: crossplane
+  namespace: kube-system
+spec:
+  repo: https://charts.crossplane.io/stable
+  chart: crossplane
+  targetNamespace: crossplane-system
+  createNamespace: true
+```
+
+#### ArgoCD
+
+```yaml
+---
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: argocd
+  namespace: kube-system
+spec:
+  repo: https://argoproj.github.io/argo-helm
+  chart: argo-cd
+  targetNamespace: argocd
+  createNamespace: true
+  valuesContent: |-
+    global:
+      domain: argocd.local
+    crds:
+      install: true
+    configs:
+      cm:
+        users.anonymous.enabled: true
+      rbac:
+        policy.default: role:readonly
+      params:
+        server.insecure: true
+```
+
+#### Private Configuration
+
+Alter this example as required
+
+```yaml
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: observability
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: telegraf-env
+  namespace: observability
+type: Opaque
+stringData:
+  LOCATION_1_NAME: "New York"
+  LOCATION_1_LATITUDE: "40.79"
+  LOCATION_1_LONGITUDE: "-73.96"
+  LOCATION_1_TIMEZONE: "America/New_York"
+
+  LOCATION_2_NAME: "London"
+  LOCATION_2_LATITUDE: "51.50"
+  LOCATION_2_LONGITUDE: "0.00"
+  LOCATION_2_TIMEZONE: "Europe/London"
+
+  UTILITIES: "https://docs.google.com/spreadsheets/d/e/2PACX-asdf/pub?gid=0&single=true&output=csv"
+  COMPOSITION: "https://docs.google.com/spreadsheets/d/e/2PACX-qwer/pub?gid=0&single=true&output=csv"
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: netsec
+```
+
+Then append the Secret to the file:
 ```bash
-helm repo add argo https://argoproj.github.io/argo-helm
-helm repo add crossplane-stable https://charts.crossplane.io/stable
-helm repo update
+openssl req \
+  -quiet \
+  -x509 \
+  -new \
+  -nodes \
+  -newkey rsa:4096 \
+  -keyout /tmp/tls.key \
+  -out /tmp/tls.crt \
+  -days 3650 \
+  -subj "/O=Muster/OU=Tech/CN=Muster-CA" \
+  -addext "basicConstraints = critical, CA:TRUE" \
+  -addext "keyUsage = critical, digitalSignature, cRLSign, keyCertSign"
 ```
-
-Install:
 ```bash
-helm upgrade --install argo-cd argo/argo-cd \
-  --namespace argocd \
-  --create-namespace \
-  --set crds.install=true
-
-helm upgrade --install crossplane-system crossplane-stable/crossplane \
-  --namespace crossplane-system \
-  --create-namespace \
+k \
+  -n netsec \
+  create secret tls muster-ca \
+  --cert=/tmp/tls.crt \
+  --key=/tmp/tls.key \
+  --dry-run=client -o yaml
 ```
-
-
-## Installation
-
-Create the ArgoCD 'App of Apps':
+Optionally install the CA Cert wherever required:
 ```bash
-$ kubectl apply -f app-of-apps.yml
-```
-```
-application.argoproj.io/app-of-apps created
+$ cat /tmp/tls.crt 
 ```
 
-Confirm all apps are healthy:
+#### Application
+
+```yaml
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: all
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  source:
+    path: projects
+    repoURL: https://github.com/josephchapman/muster
+    targetRevision: HEAD
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+```
+
+### Methods
+
+Write the above bootstrapping manifests to the provisioning directories (k3s examples below).
+
+#### `cloud-init`
+
+```yaml
+write_files:
+  - path: /var/lib/rancher/k3s/server/manifests/muster/crossplane.yaml
+    owner: root:root
+    permissions: '0600'
+    content: |
+      ---
+      manifest
+      ...
+  - path: /var/lib/rancher/k3s/server/manifests/muster/argocd.yaml
+    owner: root:root
+    permissions: '0600'
+    content: |
+      ---
+      manifest
+      ...
+  - path: /var/lib/rancher/k3s/server/manifests/muster/secret.yaml
+    owner: root:root
+    permissions: '0600'
+    content: |
+      ---
+      manifest
+      ...
+  - path: /var/lib/rancher/k3s/server/manifests/muster/application.yaml
+    owner: root:root
+    permissions: '0600'
+    content: |
+      ---
+      manifest
+      ...
+```
+
+#### Rancher Desktop (WSL)
+
+Create a `muster.start` file in `C:\Users\username\AppData\Local\rancher-desktop\provisioning>`:
 ```bash
-$ kubectl -n argocd get application
-```
-```
-NAME                          SYNC STATUS   HEALTH STATUS
-app-of-apps                   Synced        Healthy
-chess-analyzer                Synced        Healthy
-crossplane-provider-configs   Synced        Healthy
-crossplane-providers          Synced        Healthy
-logger-speedrun               Synced        Healthy
-observability                 Synced        Healthy
-prometheus-exporter-weather   Synced        Healthy
-security                      Synced        Healthy
-```
+set -eux
+mkdir -p /var/lib/rancher/k3s/server/manifests/muster/
 
+tee /var/lib/rancher/k3s/server/manifests/muster/crossplane.yaml > /dev/null \
+<<'EOF'
+---
+manifest
+...
+EOF
 
-## ArgoCD
+tee /var/lib/rancher/k3s/server/manifests/muster/argocd.yaml > /dev/null \
+<<'EOF'
+---
+manifest
+...
+EOF
 
-Get ArgoCD admin password:
-```bash
-$ kubectl -n argocd \
-    get secret argocd-initial-admin-secret \
-    -o jsonpath="{.data.password}" \
-| base64 -d
-```
+tee /var/lib/rancher/k3s/server/manifests/muster/secret.yaml > /dev/null \
+<<'EOF'
+---
+manifest
+...
+EOF
 
-Port forward:
-```bash
-$ kubectl -n argocd \
-    port-forward service/argo-cd-argocd-server \
-    8080:http
+tee /var/lib/rancher/k3s/server/manifests/muster/application.yaml > /dev/null \
+<<'EOF'
+---
+manifest
+...
+EOF
 ```
-```
-http://127.0.0.1:8080
-```
-
-Username: `admin`
-Password: `<as above>`
-
-
-## Weather Exporter
-
-Port forward:
-```bash
-$ kubectl -n datasources \
-    port-forward service/prometheus-exporter-weather \
-    2112:2112
-```
-```
-http://127.0.0.1:2112/metrics
-```
-
-
-## Prometheus
-
-Port forward:
-```bash
-$ kubectl -n observability \
-    port-forward service/prometheus-server \
-    9090:http
-```
-```
-http://127.0.0.1:9090
-```
-
-Test query:
-```
-weather_temperature_actual_celcius
-```
-
-
-## Loki
-
-Port forward:
-```bash
-$ kubectl -n observability \
-    port-forward \
-    service/loki 3100:3100
-```
-
-Test data:
-```bash
-$ curl -sX POST \
-    http://127.0.0.1:3100/loki/api/v1/push \
-    -H 'Content-Type: application/json' \
-    --data-raw "
-      {
-        \"streams\": [
-          {
-            \"stream\": {
-              \"job\": \"testjob\"
-            },
-            \"values\": [
-              [
-                \"$(date +%s)000000000\",
-                \"it works\"
-              ]
-            ]
-          }
-        ]
-      }"
-```
-
-Confirm test data was received:
-```bash
-$ curl -s \
-    http://127.0.0.1:3100/loki/api/v1/query_range \
-    --data-urlencode 'query={job="testjob"}' \
-| jq '.data.result'
-```
-```
-[
-  {
-    "stream": {
-      "detected_level": "unknown",
-      "job": "testjob",
-      "service_name": "testjob"
-    },
-    "values": [
-      [
-        "1764277360000000000",
-        "it works"
-      ]
-    ]
-  }
-]
-```
-
-
-## Grafana
-
-Get Grafana admin password:
-```bash
-$ kubectl -n observability \
-    get secrets grafana \
-    -o jsonpath='{.data.admin-password}' \
-| base64 -d
-```
-
-Port forward:
-```bash
-$ kubectl -n observability \
-    port-forward service/grafana \
-    3000:80
-```
-
-```
-http://127.0.0.1:3000
-```
+Ensure that the files are LF formatted (not CRLF)

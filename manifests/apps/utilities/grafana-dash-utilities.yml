@@ -1,0 +1,2661 @@
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaManifest
+metadata:
+  name: dashboard-utilities
+  namespace: observability
+spec:
+  # suspend: true
+  suspend: false
+  allowCrossNamespaceImport: true
+  instanceSelector:
+    matchLabels:
+      dashboards: "grafana"
+  template:
+    apiVersion: dashboard.grafana.app/v2
+    kind: Dashboard
+    metadata:
+      name: gswhfl
+      labels: {}
+      annotations: {}
+    spec:
+      annotations:
+        - kind: AnnotationQuery
+          spec:
+            query:
+              kind: DataQuery
+              group: grafana
+              version: v0
+              spec: {}
+            enable: true
+            hide: true
+            iconColor: rgba(0, 211, 255, 1)
+            name: Annotations & Alerts
+            builtIn: true
+      cursorSync: 'Off'
+      editable: true
+      elements:
+        panel-1:
+          kind: Panel
+          spec:
+            id: 1
+            title: ''
+            description: ''
+            links: []
+            data:
+              kind: QueryGroup
+              spec:
+                queries:
+                  - kind: PanelQuery
+                    spec:
+                      query:
+                        kind: DataQuery
+                        group: influxdb
+                        version: v0
+                        spec:
+                          dataset: iox
+                          editorMode: code
+                          format: table
+                          rawQuery: true
+                          rawSql: "WITH deltas AS (\r\n  SELECT\r\n    time,\r\n    electricity_generation - LAG(electricity_generation) OVER (ORDER BY time) AS val_diff,\r\n    EXTRACT(EPOCH FROM (time - LAG(time) OVER (ORDER BY time))) AS sec_diff\r\n  FROM\r\n    utilities\r\n  WHERE\r\n    source = 'bill'\r\n    AND electricity_generation IS NOT NULL\r\n    AND time <= $__timeTo()\r\n)\r\nSELECT\r\n  time,\r\n  val_diff / (sec_diff / 86400.0) AS \"Bill\"\r\nFROM\r\n  deltas\r\nWHERE\r\n  val_diff IS NOT NULL\r\n  AND sec_diff > 0\r\nORDER BY\r\n  time ASC"
+                          sql:
+                            columns:
+                              - parameters: []
+                                type: function
+                            groupBy:
+                              - property:
+                                  type: string
+                                type: groupBy
+                      refId: A
+                      hidden: false
+                  - kind: PanelQuery
+                    spec:
+                      query:
+                        kind: DataQuery
+                        group: influxdb
+                        version: v0
+                        spec:
+                          dataset: iox
+                          editorMode: code
+                          format: table
+                          rawQuery: true
+                          rawSql: "WITH deltas AS (\r\n  SELECT\r\n    time,\r\n    electricity_generation - LAG(electricity_generation) OVER (ORDER BY time) AS val_diff,\r\n    EXTRACT(EPOCH FROM (time - LAG(time) OVER (ORDER BY time))) AS sec_diff\r\n  FROM\r\n    utilities\r\n  WHERE\r\n    source = 'meter'\r\n    AND electricity_generation IS NOT NULL\r\n    AND time <= $__timeTo()\r\n)\r\nSELECT\r\n  time,\r\n  val_diff / (sec_diff / 86400.0) AS \"Meter\"\r\nFROM\r\n  deltas\r\nWHERE\r\n  val_diff IS NOT NULL\r\n  AND sec_diff > 0\r\nORDER BY\r\n  time ASC"
+                          sql:
+                            columns:
+                              - parameters: []
+                                type: function
+                            groupBy:
+                              - property:
+                                  type: string
+                                type: groupBy
+                      refId: B
+                      hidden: false
+                  - kind: PanelQuery
+                    spec:
+                      query:
+                        kind: DataQuery
+                        group: influxdb
+                        version: v0
+                        spec:
+                          dataset: iox
+                          editorMode: code
+                          format: table
+                          rawQuery: true
+                          rawSql: "WITH meter_intervals AS (\r\n  SELECT\r\n    LAG(time) OVER (ORDER BY time) AS start_time,\r\n    time AS end_time\r\n  FROM\r\n    utilities\r\n  WHERE\r\n    time <= $__timeTo()\r\n    AND \"source\" = 'meter'\r\n    AND \"electricity_generation\" IS NOT NULL\r\n),\r\ndaytime_weather AS (\r\n  SELECT\r\n    time,\r\n    cloud_cover\r\n  FROM\r\n    weather\r\n  WHERE\r\n    time <= $__timeTo()\r\n    AND \"location_alias\" = 'location_1'\r\n    AND \"is_day\" = 1.0\r\n    AND \"cloud_cover\" IS NOT NULL\r\n    AND '${showCloudCover}' = 'true'\r\n)\r\nSELECT\r\n  m.end_time AS \"time\",\r\n  AVG(w.\"cloud_cover\") AS \"Cloud Cover\"\r\nFROM\r\n  meter_intervals m\r\nINNER JOIN\r\n  daytime_weather w\r\n  ON w.time > m.start_time\r\n  AND w.time <= m.end_time\r\nWHERE\r\n  m.start_time IS NOT NULL\r\nGROUP BY\r\n  m.end_time\r\nORDER BY\r\n  m.end_time ASC\r\n"
+                          sql:
+                            columns:
+                              - parameters: []
+                                type: function
+                            groupBy:
+                              - property:
+                                  type: string
+                                type: groupBy
+                      refId: C
+                      hidden: false
+                transformations: []
+                queryOptions: {}
+            vizConfig:
+              kind: VizConfig
+              group: timeseries
+              version: 13.1.3
+              spec:
+                options:
+                  annotations:
+                    clustering: -1
+                    multiLane: false
+                  legend:
+                    calcs: []
+                    displayMode: list
+                    enableFacetedFilter: false
+                    overflow: ellipsis
+                    placement: bottom
+                    showLegend: true
+                  tooltip:
+                    hideZeros: false
+                    mode: single
+                    sort: none
+                fieldConfig:
+                  defaults:
+                    unit: kWh/day
+                    min: 0
+                    max: 8.76
+                    thresholds:
+                      mode: absolute
+                      steps:
+                        - value: 0
+                          color: transparent
+                        - value: 3.96
+                          color: orange
+                        - value: 5.16
+                          color: yellow
+                        - value: 6.36
+                          color: green
+                        - value: 7.56
+                          color: transparent
+                    color:
+                      mode: palette-classic
+                    custom:
+                      axisBorderShow: false
+                      axisCenteredZero: false
+                      axisColorMode: text
+                      axisLabel: ''
+                      axisPlacement: auto
+                      barAlignment: 0
+                      barWidthFactor: 0.6
+                      drawStyle: line
+                      fillOpacity: 0
+                      gradientMode: none
+                      hideFrom:
+                        legend: false
+                        tooltip: false
+                        viz: false
+                      insertNulls: false
+                      lineInterpolation: stepBefore
+                      lineWidth: 1
+                      pointSize: 5
+                      scaleDistribution:
+                        type: linear
+                      showPoints: auto
+                      showValues: false
+                      spanNulls: false
+                      stacking:
+                        group: A
+                        mode: none
+                      thresholdsStyle:
+                        mode: area
+                  overrides:
+                    - matcher:
+                        id: byName
+                        scope: series
+                        options: Bill
+                      properties:
+                        - id: color
+                          value:
+                            fixedColor: text
+                            mode: fixed
+                        - id: custom.lineInterpolation
+                          value: smooth
+                    - matcher:
+                        id: byName
+                        scope: series
+                        options: Meter
+                      properties:
+                        - id: color
+                          value:
+                            fixedColor: yellow
+                            mode: fixed
+                    - matcher:
+                        id: byName
+                        scope: series
+                        options: Cloud Cover
+                      properties:
+                        - id: custom.axisPlacement
+                          value: right
+                        - id: unit
+                          value: percent
+                        - id: max
+                          value: 200
+                        - id: thresholds
+                          value:
+                            mode: absolute
+                            steps:
+                              - color: transparent
+                                value: 0
+        panel-10:
+          kind: Panel
+          spec:
+            id: 10
+            title: ''
+            description: ''
+            links: []
+            data:
+              kind: QueryGroup
+              spec:
+                queries:
+                  - kind: PanelQuery
+                    spec:
+                      query:
+                        kind: DataQuery
+                        group: influxdb
+                        version: v0
+                        spec:
+                          dataset: iox
+                          editorMode: code
+                          format: table
+                          rawQuery: true
+                          rawSql: "WITH rates AS (\r\n  SELECT\r\n    time,\r\n    (electricity_generation - LAG(electricity_generation) OVER (ORDER BY time))\r\n      / NULLIF(EXTRACT(EPOCH FROM (time - LAG(time) OVER (ORDER BY time))), 0) * 3600 AS gen_rate,\r\n    (electricity_consumption - LAG(electricity_consumption) OVER (ORDER BY time))\r\n      / NULLIF(EXTRACT(EPOCH FROM (time - LAG(time) OVER (ORDER BY time))), 0) * 3600 AS cons_rate\r\n  FROM\r\n    utilities\r\n  WHERE\r\n    source = 'bill'\r\n    AND time <= $__timeTo()\r\n    AND electricity_generation IS NOT NULL\r\n    AND electricity_consumption IS NOT NULL\r\n)\r\nSELECT\r\n  time,\r\n  gen_rate - cons_rate AS bill\r\nFROM\r\n  rates\r\nWHERE \r\n  gen_rate IS NOT NULL\r\n  AND cons_rate IS NOT NULL\r\nORDER BY\r\n  time ASC"
+                          sql:
+                            columns:
+                              - parameters: []
+                                type: function
+                            groupBy:
+                              - property:
+                                  type: string
+                                type: groupBy
+                      refId: A
+                      hidden: false
+                  - kind: PanelQuery
+                    spec:
+                      query:
+                        kind: DataQuery
+                        group: influxdb
+                        version: v0
+                        spec:
+                          dataset: iox
+                          editorMode: code
+                          format: table
+                          rawQuery: true
+                          rawSql: "WITH rates AS (\r\n  SELECT\r\n    time,\r\n    (electricity_generation - LAG(electricity_generation) OVER (ORDER BY time))\r\n      / NULLIF(EXTRACT(EPOCH FROM (time - LAG(time) OVER (ORDER BY time))), 0) * 3600 AS gen_rate,\r\n    (electricity_consumption - LAG(electricity_consumption) OVER (ORDER BY time))\r\n      / NULLIF(EXTRACT(EPOCH FROM (time - LAG(time) OVER (ORDER BY time))), 0) * 3600 AS cons_rate\r\n  FROM\r\n    utilities\r\n  WHERE\r\n    source = 'meter'\r\n    AND time <= $__timeTo()\r\n    AND electricity_generation IS NOT NULL\r\n    AND electricity_consumption IS NOT NULL\r\n)\r\nSELECT\r\n  time,\r\n  gen_rate - cons_rate AS meter\r\nFROM\r\n  rates\r\nWHERE \r\n  gen_rate IS NOT NULL\r\n  AND cons_rate IS NOT NULL\r\nORDER BY\r\n  time ASC"
+                          sql:
+                            columns:
+                              - parameters: []
+                                type: function
+                            groupBy:
+                              - property:
+                                  type: string
+                                type: groupBy
+                      refId: B
+                      hidden: false
+                transformations: []
+                queryOptions: {}
+            vizConfig:
+              kind: VizConfig
+              group: timeseries
+              version: 13.1.3
+              spec:
+                options:
+                  annotations:
+                    clustering: -1
+                    multiLane: false
+                  legend:
+                    calcs: []
+                    displayMode: list
+                    enableFacetedFilter: false
+                    overflow: ellipsis
+                    placement: bottom
+                    showLegend: true
+                  tooltip:
+                    hideZeros: false
+                    mode: single
+                    sort: none
+                fieldConfig:
+                  defaults:
+                    unit: kwatt
+                    thresholds:
+                      mode: absolute
+                      steps:
+                        - value: 0
+                          color: red
+                        - value: 0
+                          color: green
+                    color:
+                      mode: palette-classic
+                    custom:
+                      axisBorderShow: false
+                      axisCenteredZero: true
+                      axisColorMode: text
+                      axisLabel: ''
+                      axisPlacement: auto
+                      barAlignment: 0
+                      barWidthFactor: 0.6
+                      drawStyle: line
+                      fillOpacity: 0
+                      gradientMode: none
+                      hideFrom:
+                        legend: false
+                        tooltip: false
+                        viz: false
+                      insertNulls: false
+                      lineInterpolation: stepBefore
+                      lineWidth: 1
+                      pointSize: 5
+                      scaleDistribution:
+                        type: linear
+                      showPoints: auto
+                      showValues: false
+                      spanNulls: false
+                      stacking:
+                        group: A
+                        mode: none
+                      thresholdsStyle:
+                        mode: area
+                  overrides:
+                    - matcher:
+                        id: byName
+                        scope: series
+                        options: bill
+                      properties:
+                        - id: color
+                          value:
+                            fixedColor: text
+                            mode: fixed
+        panel-11:
+          kind: Panel
+          spec:
+            id: 11
+            title: ''
+            description: ''
+            links: []
+            data:
+              kind: QueryGroup
+              spec:
+                queries:
+                  - kind: PanelQuery
+                    spec:
+                      query:
+                        kind: DataQuery
+                        group: influxdb
+                        version: v0
+                        spec:
+                          dataset: iox
+                          editorMode: code
+                          format: table
+                          rawQuery: true
+                          rawSql: "WITH rates AS (\r\n  SELECT\r\n    time,\r\n    (electricity_generation - LAG(electricity_generation) OVER (ORDER BY time))\r\n      / NULLIF(EXTRACT(EPOCH FROM (time - LAG(time) OVER (ORDER BY time))), 0) * 3600 AS gen_rate,\r\n    (electricity_consumption - LAG(electricity_consumption) OVER (ORDER BY time))\r\n      / NULLIF(EXTRACT(EPOCH FROM (time - LAG(time) OVER (ORDER BY time))), 0) * 3600 AS cons_rate\r\n  FROM\r\n    utilities\r\n  WHERE\r\n    source = 'meter'\r\n    AND time <= $__timeTo()\r\n    AND electricity_generation IS NOT NULL\r\n    AND electricity_consumption IS NOT NULL\r\n)\r\nSELECT\r\n  time,\r\n  gen_rate - cons_rate AS electricity_net\r\nFROM\r\n  rates\r\nWHERE \r\n  gen_rate IS NOT NULL\r\n  AND cons_rate IS NOT NULL\r\nORDER BY\r\n  time ASC"
+                          sql:
+                            columns:
+                              - parameters: []
+                                type: function
+                            groupBy:
+                              - property:
+                                  type: string
+                                type: groupBy
+                      refId: A
+                      hidden: false
+                transformations: []
+                queryOptions: {}
+            vizConfig:
+              kind: VizConfig
+              group: gauge
+              version: 13.1.3
+              spec:
+                options:
+                  barShape: flat
+                  barWidthFactor: 0.75
+                  effects:
+                    barGlow: false
+                    centerGlow: false
+                    gradient: false
+                  endpointMarker: point
+                  minVizHeight: 75
+                  minVizWidth: 75
+                  orientation: auto
+                  reduceOptions:
+                    calcs:
+                      - lastNotNull
+                    fields: /^electricity_net$/
+                    values: false
+                  segmentCount: 40
+                  segmentSpacing: 0.1
+                  shape: gauge
+                  showThresholdLabels: true
+                  showThresholdMarkers: true
+                  sizing: auto
+                  sparkline: false
+                  textMode: auto
+                fieldConfig:
+                  defaults:
+                    unit: kwatt
+                    decimals: 0
+                    min: -1
+                    max: 1
+                    thresholds:
+                      mode: absolute
+                      steps:
+                        - value: 0
+                          color: red
+                        - value: 0
+                          color: green
+                    color:
+                      mode: thresholds
+                  overrides: []
+        panel-12:
+          kind: Panel
+          spec:
+            id: 12
+            title: ''
+            description: ''
+            links: []
+            data:
+              kind: QueryGroup
+              spec:
+                queries:
+                  - kind: PanelQuery
+                    spec:
+                      query:
+                        kind: DataQuery
+                        group: influxdb
+                        version: v0
+                        spec:
+                          dataset: iox
+                          editorMode: code
+                          format: table
+                          rawQuery: true
+                          rawSql: "WITH rates AS (\r\n  SELECT\r\n    time,\r\n    (electricity_generation - LAG(electricity_generation) OVER (ORDER BY time))\r\n      / NULLIF(EXTRACT(EPOCH FROM (time - LAG(time) OVER (ORDER BY time))), 0) * 3600 AS gen_rate,\r\n    (electricity_consumption - LAG(electricity_consumption) OVER (ORDER BY time))\r\n      / NULLIF(EXTRACT(EPOCH FROM (time - LAG(time) OVER (ORDER BY time))), 0) * 3600 AS cons_rate\r\n  FROM\r\n    utilities\r\n  WHERE\r\n    source = 'bill'\r\n    AND time <= $__timeTo()\r\n    AND electricity_generation IS NOT NULL\r\n    AND electricity_consumption IS NOT NULL\r\n)\r\nSELECT\r\n  time,\r\n  gen_rate / cons_rate AS bill\r\nFROM\r\n  rates\r\nWHERE \r\n  gen_rate IS NOT NULL\r\n  AND cons_rate IS NOT NULL\r\nORDER BY\r\n  time ASC"
+                          sql:
+                            columns:
+                              - parameters: []
+                                type: function
+                            groupBy:
+                              - property:
+                                  type: string
+                                type: groupBy
+                      refId: A
+                      hidden: false
+                  - kind: PanelQuery
+                    spec:
+                      query:
+                        kind: DataQuery
+                        group: influxdb
+                        version: v0
+                        spec:
+                          dataset: iox
+                          editorMode: code
+                          format: table
+                          rawQuery: true
+                          rawSql: "WITH rates AS (\r\n  SELECT\r\n    time,\r\n    (electricity_generation - LAG(electricity_generation) OVER (ORDER BY time))\r\n      / NULLIF(EXTRACT(EPOCH FROM (time - LAG(time) OVER (ORDER BY time))), 0) * 3600 AS gen_rate,\r\n    (electricity_consumption - LAG(electricity_consumption) OVER (ORDER BY time))\r\n      / NULLIF(EXTRACT(EPOCH FROM (time - LAG(time) OVER (ORDER BY time))), 0) * 3600 AS cons_rate\r\n  FROM\r\n    utilities\r\n  WHERE\r\n    source = 'meter'\r\n    AND time <= $__timeTo()\r\n    AND electricity_generation IS NOT NULL\r\n    AND electricity_consumption IS NOT NULL\r\n)\r\nSELECT\r\n  time,\r\n  gen_rate / cons_rate AS meter\r\nFROM\r\n  rates\r\nWHERE \r\n  gen_rate IS NOT NULL\r\n  AND cons_rate IS NOT NULL\r\nORDER BY\r\n  time ASC"
+                          sql:
+                            columns:
+                              - parameters: []
+                                type: function
+                            groupBy:
+                              - property:
+                                  type: string
+                                type: groupBy
+                      refId: B
+                      hidden: false
+                transformations: []
+                queryOptions: {}
+            vizConfig:
+              kind: VizConfig
+              group: timeseries
+              version: 13.1.3
+              spec:
+                options:
+                  annotations:
+                    clustering: -1
+                    multiLane: false
+                  legend:
+                    calcs: []
+                    displayMode: list
+                    enableFacetedFilter: false
+                    overflow: ellipsis
+                    placement: bottom
+                    showLegend: true
+                  tooltip:
+                    hideZeros: false
+                    mode: single
+                    sort: none
+                fieldConfig:
+                  defaults:
+                    unit: none
+                    decimals: 1
+                    min: 0
+                    max: 3
+                    thresholds:
+                      mode: absolute
+                      steps:
+                        - value: 0
+                          color: red
+                        - value: 1
+                          color: orange
+                        - value: 1.3
+                          color: green
+                    color:
+                      mode: palette-classic
+                    custom:
+                      axisBorderShow: false
+                      axisCenteredZero: true
+                      axisColorMode: text
+                      axisLabel: ''
+                      axisPlacement: auto
+                      barAlignment: 0
+                      barWidthFactor: 0.6
+                      drawStyle: line
+                      fillOpacity: 0
+                      gradientMode: none
+                      hideFrom:
+                        legend: false
+                        tooltip: false
+                        viz: false
+                      insertNulls: false
+                      lineInterpolation: stepBefore
+                      lineWidth: 1
+                      pointSize: 5
+                      scaleDistribution:
+                        type: linear
+                      showPoints: auto
+                      showValues: false
+                      spanNulls: false
+                      stacking:
+                        group: A
+                        mode: none
+                      thresholdsStyle:
+                        mode: area
+                  overrides:
+                    - matcher:
+                        id: byName
+                        scope: series
+                        options: bill
+                      properties:
+                        - id: color
+                          value:
+                            fixedColor: text
+                            mode: fixed
+        panel-13:
+          kind: Panel
+          spec:
+            id: 13
+            title: ''
+            description: ''
+            links: []
+            data:
+              kind: QueryGroup
+              spec:
+                queries:
+                  - kind: PanelQuery
+                    spec:
+                      query:
+                        kind: DataQuery
+                        group: influxdb
+                        version: v0
+                        spec:
+                          dataset: iox
+                          editorMode: code
+                          format: table
+                          rawQuery: true
+                          rawSql: "WITH rates AS (\r\n  SELECT\r\n    time,\r\n    (electricity_generation - LAG(electricity_generation) OVER (ORDER BY time))\r\n      / NULLIF(EXTRACT(EPOCH FROM (time - LAG(time) OVER (ORDER BY time))), 0) * 3600 AS gen_rate,\r\n    (electricity_consumption - LAG(electricity_consumption) OVER (ORDER BY time))\r\n      / NULLIF(EXTRACT(EPOCH FROM (time - LAG(time) OVER (ORDER BY time))), 0) * 3600 AS cons_rate\r\n  FROM\r\n    utilities\r\n  WHERE\r\n    source = 'meter'\r\n    AND time <= $__timeTo()\r\n    AND electricity_generation IS NOT NULL\r\n    AND electricity_consumption IS NOT NULL\r\n)\r\nSELECT\r\n  time,\r\n  gen_rate / cons_rate AS electricity_ratio\r\nFROM\r\n  rates\r\nWHERE \r\n  gen_rate IS NOT NULL\r\n  AND cons_rate IS NOT NULL\r\nORDER BY\r\n  time ASC"
+                          sql:
+                            columns:
+                              - parameters: []
+                                type: function
+                            groupBy:
+                              - property:
+                                  type: string
+                                type: groupBy
+                      refId: A
+                      hidden: false
+                transformations: []
+                queryOptions: {}
+            vizConfig:
+              kind: VizConfig
+              group: gauge
+              version: 13.1.3
+              spec:
+                options:
+                  barShape: flat
+                  barWidthFactor: 0.75
+                  effects:
+                    barGlow: false
+                    centerGlow: false
+                    gradient: false
+                  endpointMarker: point
+                  minVizHeight: 75
+                  minVizWidth: 75
+                  orientation: auto
+                  reduceOptions:
+                    calcs:
+                      - lastNotNull
+                    fields: /^electricity_ratio$/
+                    values: false
+                  segmentCount: 90
+                  segmentSpacing: 0.1
+                  shape: gauge
+                  showThresholdLabels: true
+                  showThresholdMarkers: true
+                  sizing: auto
+                  sparkline: false
+                  textMode: auto
+                fieldConfig:
+                  defaults:
+                    unit: none
+                    min: 0
+                    max: 3
+                    thresholds:
+                      mode: absolute
+                      steps:
+                        - value: 0
+                          color: red
+                        - value: 1
+                          color: orange
+                        - value: 1.3
+                          color: green
+                    color:
+                      mode: thresholds
+                  overrides: []
+        panel-14:
+          kind: Panel
+          spec:
+            id: 14
+            title: ''
+            description: ''
+            links: []
+            data:
+              kind: QueryGroup
+              spec:
+                queries:
+                  - kind: PanelQuery
+                    spec:
+                      query:
+                        kind: DataQuery
+                        group: influxdb
+                        version: v0
+                        spec:
+                          dataset: iox
+                          editorMode: code
+                          format: table
+                          rawQuery: true
+                          rawSql: "WITH rates AS (\r\n  SELECT\r\n    time,\r\n    (electricity_generation - LAG(electricity_generation) OVER (ORDER BY time))\r\n      / NULLIF(EXTRACT(EPOCH FROM (time - LAG(time) OVER (ORDER BY time))), 0) * 2592000 AS gen_rate,\r\n    (electricity_consumption - LAG(electricity_consumption) OVER (ORDER BY time))\r\n      / NULLIF(EXTRACT(EPOCH FROM (time - LAG(time) OVER (ORDER BY time))), 0) * 2592000 AS cons_rate\r\n  FROM\r\n    utilities\r\n  WHERE\r\n    source = 'bill'\r\n    AND time <= $__timeTo()\r\n    AND electricity_generation IS NOT NULL\r\n    AND electricity_consumption IS NOT NULL\r\n)\r\nSELECT\r\n  time,\r\n  (gen_rate * 0.1050) - (cons_rate * 0.1365) AS bill\r\nFROM\r\n  rates\r\nWHERE \r\n  gen_rate IS NOT NULL\r\n  AND cons_rate IS NOT NULL\r\nORDER BY\r\n  time ASC"
+                          sql:
+                            columns:
+                              - parameters: []
+                                type: function
+                            groupBy:
+                              - property:
+                                  type: string
+                                type: groupBy
+                      refId: A
+                      hidden: false
+                  - kind: PanelQuery
+                    spec:
+                      query:
+                        kind: DataQuery
+                        group: influxdb
+                        version: v0
+                        spec:
+                          dataset: iox
+                          editorMode: code
+                          format: table
+                          rawQuery: true
+                          rawSql: "WITH rates AS (\r\n  SELECT\r\n    time,\r\n    (electricity_generation - LAG(electricity_generation) OVER (ORDER BY time))\r\n      / NULLIF(EXTRACT(EPOCH FROM (time - LAG(time) OVER (ORDER BY time))), 0) * 2592000 AS gen_rate,\r\n    (electricity_consumption - LAG(electricity_consumption) OVER (ORDER BY time))\r\n      / NULLIF(EXTRACT(EPOCH FROM (time - LAG(time) OVER (ORDER BY time))), 0) * 2592000 AS cons_rate\r\n  FROM\r\n    utilities\r\n  WHERE\r\n    source = 'meter'\r\n    AND time <= $__timeTo()\r\n    AND electricity_generation IS NOT NULL\r\n    AND electricity_consumption IS NOT NULL\r\n)\r\nSELECT\r\n  time,\r\n  (gen_rate * 0.1050) - (cons_rate * 0.1365) AS meter\r\nFROM\r\n  rates\r\nWHERE \r\n  gen_rate IS NOT NULL\r\n  AND cons_rate IS NOT NULL\r\nORDER BY\r\n  time ASC"
+                          sql:
+                            columns:
+                              - parameters: []
+                                type: function
+                            groupBy:
+                              - property:
+                                  type: string
+                                type: groupBy
+                      refId: B
+                      hidden: false
+                transformations: []
+                queryOptions: {}
+            vizConfig:
+              kind: VizConfig
+              group: timeseries
+              version: 13.1.3
+              spec:
+                options:
+                  annotations:
+                    clustering: -1
+                    multiLane: false
+                  legend:
+                    calcs: []
+                    displayMode: list
+                    enableFacetedFilter: false
+                    overflow: ellipsis
+                    placement: bottom
+                    showLegend: true
+                  tooltip:
+                    hideZeros: false
+                    mode: single
+                    sort: none
+                fieldConfig:
+                  defaults:
+                    unit: currencyEUR
+                    min: -15
+                    max: 15
+                    thresholds:
+                      mode: absolute
+                      steps:
+                        - value: 0
+                          color: red
+                        - value: 0
+                          color: green
+                    color:
+                      mode: palette-classic
+                    custom:
+                      axisBorderShow: false
+                      axisCenteredZero: true
+                      axisColorMode: text
+                      axisLabel: ''
+                      axisPlacement: auto
+                      barAlignment: 0
+                      barWidthFactor: 0.6
+                      drawStyle: line
+                      fillOpacity: 0
+                      gradientMode: none
+                      hideFrom:
+                        legend: false
+                        tooltip: false
+                        viz: false
+                      insertNulls: false
+                      lineInterpolation: stepBefore
+                      lineWidth: 1
+                      pointSize: 5
+                      scaleDistribution:
+                        type: linear
+                      showPoints: auto
+                      showValues: false
+                      spanNulls: false
+                      stacking:
+                        group: A
+                        mode: none
+                      thresholdsStyle:
+                        mode: area
+                  overrides:
+                    - matcher:
+                        id: byName
+                        scope: series
+                        options: bill
+                      properties:
+                        - id: color
+                          value:
+                            fixedColor: text
+                            mode: fixed
+        panel-15:
+          kind: Panel
+          spec:
+            id: 15
+            title: ''
+            description: ''
+            links: []
+            data:
+              kind: QueryGroup
+              spec:
+                queries:
+                  - kind: PanelQuery
+                    spec:
+                      query:
+                        kind: DataQuery
+                        group: influxdb
+                        version: v0
+                        spec:
+                          dataset: iox
+                          editorMode: code
+                          format: table
+                          rawQuery: true
+                          rawSql: "WITH rates AS (\r\n  SELECT\r\n    time,\r\n    (electricity_generation - LAG(electricity_generation) OVER (ORDER BY time))\r\n      / NULLIF(EXTRACT(EPOCH FROM (time - LAG(time) OVER (ORDER BY time))), 0) * 2592000 AS gen_rate,\r\n    (electricity_consumption - LAG(electricity_consumption) OVER (ORDER BY time))\r\n      / NULLIF(EXTRACT(EPOCH FROM (time - LAG(time) OVER (ORDER BY time))), 0) * 2592000 AS cons_rate\r\n  FROM\r\n    utilities\r\n  WHERE\r\n    source = 'meter'\r\n    AND time <= $__timeTo()\r\n    AND electricity_generation IS NOT NULL\r\n    AND electricity_consumption IS NOT NULL\r\n)\r\nSELECT\r\n  time,\r\n  (gen_rate * 0.1050) - (cons_rate * 0.1365) AS monthly_profit\r\nFROM\r\n  rates\r\nWHERE \r\n  gen_rate IS NOT NULL\r\n  AND cons_rate IS NOT NULL\r\nORDER BY\r\n  time ASC"
+                          sql:
+                            columns:
+                              - parameters: []
+                                type: function
+                            groupBy:
+                              - property:
+                                  type: string
+                                type: groupBy
+                      refId: A
+                      hidden: false
+                transformations: []
+                queryOptions: {}
+            vizConfig:
+              kind: VizConfig
+              group: gauge
+              version: 13.1.3
+              spec:
+                options:
+                  barShape: flat
+                  barWidthFactor: 0.75
+                  effects:
+                    barGlow: false
+                    centerGlow: false
+                    gradient: false
+                  endpointMarker: point
+                  minVizHeight: 75
+                  minVizWidth: 75
+                  orientation: auto
+                  reduceOptions:
+                    calcs:
+                      - lastNotNull
+                    fields: /^monthly_profit$/
+                    values: false
+                  segmentCount: 60
+                  segmentSpacing: 0.1
+                  shape: gauge
+                  showThresholdLabels: true
+                  showThresholdMarkers: true
+                  sizing: auto
+                  sparkline: false
+                  textMode: auto
+                fieldConfig:
+                  defaults:
+                    unit: currencyEUR
+                    decimals: 2
+                    min: -15
+                    max: 15
+                    thresholds:
+                      mode: absolute
+                      steps:
+                        - value: 0
+                          color: red
+                        - value: 0
+                          color: green
+                    color:
+                      mode: thresholds
+                  overrides: []
+        panel-16:
+          kind: Panel
+          spec:
+            id: 16
+            title: ''
+            description: ''
+            links: []
+            data:
+              kind: QueryGroup
+              spec:
+                queries: []
+                transformations: []
+                queryOptions: {}
+            vizConfig:
+              kind: VizConfig
+              group: text
+              version: 13.1.3
+              spec:
+                options:
+                  code:
+                    language: plaintext
+                    showLineNumbers: false
+                    showMiniMap: false
+                  content: '# Cupboard to the left of front door'
+                  mode: markdown
+                fieldConfig:
+                  defaults: {}
+                  overrides: []
+        panel-17:
+          kind: Panel
+          spec:
+            id: 17
+            title: ''
+            description: ''
+            links: []
+            data:
+              kind: QueryGroup
+              spec:
+                queries: []
+                transformations: []
+                queryOptions: {}
+            vizConfig:
+              kind: VizConfig
+              group: text
+              version: 13.1.3
+              spec:
+                options:
+                  code:
+                    language: plaintext
+                    showLineNumbers: false
+                    showMiniMap: false
+                  content: '# Cupboard to the right of front door'
+                  mode: markdown
+                fieldConfig:
+                  defaults: {}
+                  overrides: []
+        panel-18:
+          kind: Panel
+          spec:
+            id: 18
+            title: ''
+            description: ''
+            links: []
+            data:
+              kind: QueryGroup
+              spec:
+                queries: []
+                transformations: []
+                queryOptions: {}
+            vizConfig:
+              kind: VizConfig
+              group: text
+              version: 13.1.3
+              spec:
+                options:
+                  code:
+                    language: plaintext
+                    showLineNumbers: false
+                    showMiniMap: false
+                  content: |-
+                    # Top-mounted Meter
+
+                    On top of the pipe
+                  mode: markdown
+                fieldConfig:
+                  defaults: {}
+                  overrides: []
+        panel-19:
+          kind: Panel
+          spec:
+            id: 19
+            title: ''
+            description: ''
+            links: []
+            data:
+              kind: QueryGroup
+              spec:
+                queries: []
+                transformations: []
+                queryOptions: {}
+            vizConfig:
+              kind: VizConfig
+              group: text
+              version: 13.1.3
+              spec:
+                options:
+                  code:
+                    language: plaintext
+                    showLineNumbers: false
+                    showMiniMap: false
+                  content: |-
+                    # Front-facing Meter
+
+                    To the left
+                  mode: markdown
+                fieldConfig:
+                  defaults: {}
+                  overrides: []
+        panel-2:
+          kind: Panel
+          spec:
+            id: 2
+            title: ''
+            description: ''
+            links: []
+            data:
+              kind: QueryGroup
+              spec:
+                queries:
+                  - kind: PanelQuery
+                    spec:
+                      query:
+                        kind: DataQuery
+                        group: influxdb
+                        version: v0
+                        spec:
+                          dataset: iox
+                          editorMode: code
+                          format: table
+                          rawQuery: true
+                          rawSql: "WITH deltas AS (\r\n  SELECT\r\n    time,\r\n    electricity_generation - LAG(electricity_generation) OVER (ORDER BY time) AS val_diff,\r\n    EXTRACT(EPOCH FROM (time - LAG(time) OVER (ORDER BY time))) AS sec_diff\r\n  FROM\r\n    utilities\r\n  WHERE\r\n    $__timeFilter(time)\r\n)\r\nSELECT\r\n  time,\r\n  val_diff / (sec_diff / 86400.0) AS \"Daily Generation\"\r\nFROM\r\n  deltas\r\nWHERE\r\n  val_diff IS NOT NULL\r\n  AND sec_diff > 0\r\nORDER BY\r\n  time ASC\r\n"
+                          sql:
+                            columns:
+                              - parameters: []
+                                type: function
+                            groupBy:
+                              - property:
+                                  type: string
+                                type: groupBy
+                      refId: A
+                      hidden: false
+                transformations: []
+                queryOptions: {}
+            vizConfig:
+              kind: VizConfig
+              group: gauge
+              version: 13.1.3
+              spec:
+                options:
+                  barShape: flat
+                  barWidthFactor: 0.75
+                  effects:
+                    barGlow: false
+                    centerGlow: false
+                    gradient: false
+                  endpointMarker: point
+                  minVizHeight: 75
+                  minVizWidth: 75
+                  orientation: auto
+                  reduceOptions:
+                    calcs:
+                      - lastNotNull
+                    fields: /^Daily Generation$/
+                    values: false
+                  segmentCount: 73
+                  segmentSpacing: 0.1
+                  shape: gauge
+                  showThresholdLabels: false
+                  showThresholdMarkers: true
+                  sizing: auto
+                  sparkline: false
+                  textMode: value_and_name
+                fieldConfig:
+                  defaults:
+                    unit: kWh/day
+                    decimals: 1
+                    min: 0
+                    max: 8.76
+                    thresholds:
+                      mode: absolute
+                      steps:
+                        - value: 0
+                          color: red
+                        - value: 3.96
+                          color: orange
+                        - value: 5.16
+                          color: yellow
+                        - value: 6.36
+                          color: green
+                        - value: 7.56
+                          color: light-blue
+                    color:
+                      mode: thresholds
+                  overrides: []
+        panel-20:
+          kind: Panel
+          spec:
+            id: 20
+            title: ''
+            description: ''
+            links: []
+            data:
+              kind: QueryGroup
+              spec:
+                queries: []
+                transformations: []
+                queryOptions: {}
+            vizConfig:
+              kind: VizConfig
+              group: text
+              version: 13.1.3
+              spec:
+                options:
+                  code:
+                    language: plaintext
+                    showLineNumbers: false
+                    showMiniMap: false
+                  content: |-
+                    # Side-on Meter
+
+                    To the right
+                  mode: markdown
+                fieldConfig:
+                  defaults: {}
+                  overrides: []
+        panel-21:
+          kind: Panel
+          spec:
+            id: 21
+            title: Water Import
+            description: ''
+            links: []
+            data:
+              kind: QueryGroup
+              spec:
+                queries:
+                  - kind: PanelQuery
+                    spec:
+                      query:
+                        kind: DataQuery
+                        group: influxdb
+                        version: v0
+                        spec:
+                          dataset: iox
+                          editorMode: code
+                          format: table
+                          rawQuery: true
+                          rawSql: "SELECT\r\n  time,\r\n  * EXCLUDE (time, comment)\r\nFROM\r\n  utilities\r\nWHERE\r\n  time <= $__timeTo()\r\nORDER BY\r\n  time DESC"
+                          sql:
+                            columns:
+                              - parameters: []
+                                type: function
+                            groupBy:
+                              - property:
+                                  type: string
+                                type: groupBy
+                      refId: A
+                      hidden: false
+                transformations: []
+                queryOptions: {}
+            vizConfig:
+              kind: VizConfig
+              group: stat
+              version: 13.1.3
+              spec:
+                options:
+                  colorMode: value
+                  graphMode: none
+                  justifyMode: auto
+                  orientation: auto
+                  percentChangeColorMode: standard
+                  reduceOptions:
+                    calcs:
+                      - firstNotNull
+                    fields: /^water_import$/
+                    values: false
+                  showPercentChange: false
+                  textMode: value
+                  wideLayout: true
+                fieldConfig:
+                  defaults:
+                    decimals: 3
+                    thresholds:
+                      mode: absolute
+                      steps:
+                        - value: 0
+                          color: blue
+                    color:
+                      mode: thresholds
+                  overrides: []
+        panel-22:
+          kind: Panel
+          spec:
+            id: 22
+            title: Electricity Import
+            description: ''
+            links: []
+            data:
+              kind: QueryGroup
+              spec:
+                queries:
+                  - kind: PanelQuery
+                    spec:
+                      query:
+                        kind: DataQuery
+                        group: influxdb
+                        version: v0
+                        spec:
+                          dataset: iox
+                          editorMode: code
+                          format: table
+                          rawQuery: true
+                          rawSql: "SELECT\r\n  time,\r\n  * EXCLUDE (time, comment)\r\nFROM\r\n  utilities\r\nWHERE\r\n  time <= $__timeTo()\r\nORDER BY\r\n  time DESC"
+                          sql:
+                            columns:
+                              - parameters: []
+                                type: function
+                            groupBy:
+                              - property:
+                                  type: string
+                                type: groupBy
+                      refId: A
+                      hidden: false
+                transformations: []
+                queryOptions: {}
+            vizConfig:
+              kind: VizConfig
+              group: stat
+              version: 13.1.3
+              spec:
+                options:
+                  colorMode: value
+                  graphMode: none
+                  justifyMode: auto
+                  orientation: auto
+                  percentChangeColorMode: standard
+                  reduceOptions:
+                    calcs:
+                      - firstNotNull
+                    fields: /^electricity_import$/
+                    values: false
+                  showPercentChange: false
+                  textMode: value
+                  wideLayout: true
+                fieldConfig:
+                  defaults:
+                    decimals: 2
+                    thresholds:
+                      mode: absolute
+                      steps:
+                        - value: 0
+                          color: green
+                    color:
+                      mode: thresholds
+                  overrides: []
+        panel-23:
+          kind: Panel
+          spec:
+            id: 23
+            title: Electricity Export
+            description: ''
+            links: []
+            data:
+              kind: QueryGroup
+              spec:
+                queries:
+                  - kind: PanelQuery
+                    spec:
+                      query:
+                        kind: DataQuery
+                        group: influxdb
+                        version: v0
+                        spec:
+                          dataset: iox
+                          editorMode: code
+                          format: table
+                          rawQuery: true
+                          rawSql: "SELECT\r\n  time,\r\n  * EXCLUDE (time, comment)\r\nFROM\r\n  utilities\r\nWHERE\r\n  time <= $__timeTo()\r\nORDER BY\r\n  time DESC"
+                          sql:
+                            columns:
+                              - parameters: []
+                                type: function
+                            groupBy:
+                              - property:
+                                  type: string
+                                type: groupBy
+                      refId: A
+                      hidden: false
+                transformations: []
+                queryOptions: {}
+            vizConfig:
+              kind: VizConfig
+              group: stat
+              version: 13.1.3
+              spec:
+                options:
+                  colorMode: value
+                  graphMode: none
+                  justifyMode: auto
+                  orientation: auto
+                  percentChangeColorMode: standard
+                  reduceOptions:
+                    calcs:
+                      - firstNotNull
+                    fields: /^electricity_export$/
+                    values: false
+                  showPercentChange: false
+                  textMode: value
+                  wideLayout: true
+                fieldConfig:
+                  defaults:
+                    decimals: 2
+                    thresholds:
+                      mode: absolute
+                      steps:
+                        - value: 0
+                          color: green
+                    color:
+                      mode: thresholds
+                  overrides: []
+        panel-24:
+          kind: Panel
+          spec:
+            id: 24
+            title: Electricity Generation
+            description: ''
+            links: []
+            data:
+              kind: QueryGroup
+              spec:
+                queries:
+                  - kind: PanelQuery
+                    spec:
+                      query:
+                        kind: DataQuery
+                        group: influxdb
+                        version: v0
+                        spec:
+                          dataset: iox
+                          editorMode: code
+                          format: table
+                          rawQuery: true
+                          rawSql: "SELECT\r\n  time,\r\n  * EXCLUDE (time, comment)\r\nFROM\r\n  utilities\r\nWHERE\r\n  time <= $__timeTo()\r\nORDER BY\r\n  time DESC"
+                          sql:
+                            columns:
+                              - parameters: []
+                                type: function
+                            groupBy:
+                              - property:
+                                  type: string
+                                type: groupBy
+                      refId: A
+                      hidden: false
+                transformations: []
+                queryOptions: {}
+            vizConfig:
+              kind: VizConfig
+              group: stat
+              version: 13.1.3
+              spec:
+                options:
+                  colorMode: value
+                  graphMode: none
+                  justifyMode: auto
+                  orientation: auto
+                  percentChangeColorMode: standard
+                  reduceOptions:
+                    calcs:
+                      - firstNotNull
+                    fields: /^electricity_generation$/
+                    values: false
+                  showPercentChange: false
+                  textMode: value
+                  wideLayout: true
+                fieldConfig:
+                  defaults:
+                    decimals: 2
+                    thresholds:
+                      mode: absolute
+                      steps:
+                        - value: 0
+                          color: yellow
+                    color:
+                      mode: thresholds
+                  overrides: []
+        panel-25:
+          kind: Panel
+          spec:
+            id: 25
+            title: ''
+            description: ''
+            links: []
+            data:
+              kind: QueryGroup
+              spec:
+                queries: []
+                transformations: []
+                queryOptions: {}
+            vizConfig:
+              kind: VizConfig
+              group: text
+              version: 13.1.3
+              spec:
+                options:
+                  code:
+                    language: plaintext
+                    showLineNumbers: false
+                    showMiniMap: false
+                  content: |-
+                    # Calculated Value
+
+                    Consumption = Import + Generation - Export
+                  mode: markdown
+                fieldConfig:
+                  defaults: {}
+                  overrides: []
+        panel-26:
+          kind: Panel
+          spec:
+            id: 26
+            title: Electricity Consumption
+            description: ''
+            links: []
+            data:
+              kind: QueryGroup
+              spec:
+                queries:
+                  - kind: PanelQuery
+                    spec:
+                      query:
+                        kind: DataQuery
+                        group: influxdb
+                        version: v0
+                        spec:
+                          dataset: iox
+                          editorMode: code
+                          format: table
+                          rawQuery: true
+                          rawSql: "SELECT\r\n  time,\r\n  * EXCLUDE (time, comment)\r\nFROM\r\n  utilities\r\nWHERE\r\n  time <= $__timeTo()\r\nORDER BY\r\n  time DESC"
+                          sql:
+                            columns:
+                              - parameters: []
+                                type: function
+                            groupBy:
+                              - property:
+                                  type: string
+                                type: groupBy
+                      refId: A
+                      hidden: false
+                transformations: []
+                queryOptions: {}
+            vizConfig:
+              kind: VizConfig
+              group: stat
+              version: 13.1.3
+              spec:
+                options:
+                  colorMode: value
+                  graphMode: none
+                  justifyMode: auto
+                  orientation: auto
+                  percentChangeColorMode: standard
+                  reduceOptions:
+                    calcs:
+                      - firstNotNull
+                    fields: /^electricity_consumption$/
+                    values: false
+                  showPercentChange: false
+                  textMode: value
+                  wideLayout: true
+                fieldConfig:
+                  defaults:
+                    decimals: 2
+                    thresholds:
+                      mode: absolute
+                      steps:
+                        - value: 0
+                          color: orange
+                    color:
+                      mode: thresholds
+                  overrides: []
+        panel-27:
+          kind: Panel
+          spec:
+            id: 27
+            title: Recent Readings
+            description: ''
+            links: []
+            data:
+              kind: QueryGroup
+              spec:
+                queries:
+                  - kind: PanelQuery
+                    spec:
+                      query:
+                        kind: DataQuery
+                        group: influxdb
+                        version: v0
+                        spec:
+                          dataset: iox
+                          editorMode: code
+                          format: table
+                          rawQuery: true
+                          rawSql: "SELECT\r\n  time,\r\n  * EXCLUDE (time, comment)\r\nFROM\r\n  utilities\r\nWHERE\r\n  time <= $__timeTo()\r\nORDER BY\r\n  time DESC"
+                          sql:
+                            columns:
+                              - parameters: []
+                                type: function
+                            groupBy:
+                              - property:
+                                  type: string
+                                type: groupBy
+                      refId: A
+                      hidden: false
+                transformations: []
+                queryOptions: {}
+            vizConfig:
+              kind: VizConfig
+              group: table
+              version: 13.1.3
+              spec:
+                options:
+                  cellHeight: sm
+                  showHeader: true
+                  sortBy:
+                    - desc: true
+                      displayName: time
+                fieldConfig:
+                  defaults:
+                    decimals: 2
+                    thresholds:
+                      mode: absolute
+                      steps:
+                        - value: 0
+                          color: green
+                        - value: 80
+                          color: red
+                    color:
+                      mode: thresholds
+                    custom:
+                      align: auto
+                      cellOptions:
+                        type: auto
+                      footer:
+                        reducers: []
+                      inspect: false
+                      wrapText: true
+                  overrides:
+                    - matcher:
+                        id: byName
+                        scope: series
+                        options: time
+                      properties:
+                        - id: custom.width
+                          value: 99
+                    - matcher:
+                        id: byName
+                        scope: series
+                        options: electricity_consumption
+                      properties:
+                        - id: custom.width
+                          value: 175
+                    - matcher:
+                        id: byName
+                        scope: series
+                        options: electricity_consumption_bill
+                      properties:
+                        - id: custom.width
+                          value: 202
+                    - matcher:
+                        id: byName
+                        scope: series
+                        options: electricity_export
+                      properties:
+                        - id: custom.width
+                          value: 130
+                    - matcher:
+                        id: byName
+                        scope: series
+                        options: electricity_generation
+                      properties:
+                        - id: custom.width
+                          value: 160
+                    - matcher:
+                        id: byName
+                        scope: series
+                        options: electricity_generation_bill
+                      properties:
+                        - id: custom.width
+                          value: 187
+                    - matcher:
+                        id: byName
+                        scope: series
+                        options: electricity_import
+                      properties:
+                        - id: custom.width
+                          value: 131
+                    - matcher:
+                        id: byName
+                        scope: series
+                        options: invoice
+                      properties:
+                        - id: custom.width
+                          value: 61
+                    - matcher:
+                        id: byName
+                        scope: series
+                        options: source
+                      properties:
+                        - id: custom.width
+                          value: 98
+                    - matcher:
+                        id: byName
+                        scope: series
+                        options: water_consumption_bill
+                      properties:
+                        - id: custom.width
+                          value: 173
+                    - matcher:
+                        id: byName
+                        scope: series
+                        options: water_import
+                      properties:
+                        - id: custom.width
+                          value: 101
+        panel-3:
+          kind: Panel
+          spec:
+            id: 3
+            title: ''
+            description: ''
+            links: []
+            data:
+              kind: QueryGroup
+              spec:
+                queries:
+                  - kind: PanelQuery
+                    spec:
+                      query:
+                        kind: DataQuery
+                        group: influxdb
+                        version: v0
+                        spec:
+                          dataset: iox
+                          editorMode: code
+                          format: table
+                          rawQuery: true
+                          rawSql: "WITH deltas AS (\r\n  SELECT\r\n    time,\r\n    electricity_generation - LAG(electricity_generation) OVER (ORDER BY time) AS val_diff,\r\n    EXTRACT(EPOCH FROM (time - LAG(time) OVER (ORDER BY time))) AS sec_diff\r\n  FROM\r\n    utilities\r\n  WHERE\r\n    $__timeFilter(time)\r\n)\r\nSELECT\r\n  time,\r\n  (val_diff / (sec_diff / 3600.0)) * 1000.0 AS \"Average Power\"\r\nFROM\r\n  deltas\r\nWHERE\r\n  val_diff IS NOT NULL\r\n  AND sec_diff > 0\r\nORDER BY\r\n  time ASC"
+                          sql:
+                            columns:
+                              - parameters: []
+                                type: function
+                            groupBy:
+                              - property:
+                                  type: string
+                                type: groupBy
+                      refId: A
+                      hidden: false
+                transformations: []
+                queryOptions: {}
+            vizConfig:
+              kind: VizConfig
+              group: gauge
+              version: 13.1.3
+              spec:
+                options:
+                  barShape: flat
+                  barWidthFactor: 0.75
+                  effects:
+                    barGlow: false
+                    centerGlow: false
+                    gradient: false
+                  endpointMarker: point
+                  minVizHeight: 75
+                  minVizWidth: 75
+                  orientation: auto
+                  reduceOptions:
+                    calcs:
+                      - lastNotNull
+                    fields: /^Average Power$/
+                    values: false
+                  segmentCount: 73
+                  segmentSpacing: 0.1
+                  shape: gauge
+                  showThresholdLabels: false
+                  showThresholdMarkers: true
+                  sizing: auto
+                  sparkline: false
+                  textMode: value_and_name
+                fieldConfig:
+                  defaults:
+                    unit: watt
+                    decimals: 0
+                    min: 0
+                    max: 365
+                    thresholds:
+                      mode: absolute
+                      steps:
+                        - value: 0
+                          color: red
+                        - value: 165
+                          color: orange
+                        - value: 215
+                          color: yellow
+                        - value: 265
+                          color: green
+                        - value: 315
+                          color: light-blue
+                    color:
+                      mode: thresholds
+                  overrides: []
+        panel-4:
+          kind: Panel
+          spec:
+            id: 4
+            title: ''
+            description: ''
+            links: []
+            data:
+              kind: QueryGroup
+              spec:
+                queries:
+                  - kind: PanelQuery
+                    spec:
+                      query:
+                        kind: DataQuery
+                        group: influxdb
+                        version: v0
+                        spec:
+                          dataset: iox
+                          editorMode: code
+                          format: table
+                          rawQuery: true
+                          rawSql: "WITH deltas AS (\r\n  SELECT\r\n    time,\r\n    electricity_consumption - LAG(electricity_consumption) OVER (ORDER BY time) AS val_diff,\r\n    EXTRACT(EPOCH FROM (time - LAG(time) OVER (ORDER BY time))) AS sec_diff\r\n  FROM\r\n    utilities\r\n  WHERE\r\n    source = 'bill'\r\n    AND electricity_consumption IS NOT NULL\r\n    AND time <= $__timeTo()\r\n)\r\nSELECT\r\n  time,\r\n  val_diff / (sec_diff / 86400.0) AS \"Bill\"\r\nFROM\r\n  deltas\r\nWHERE\r\n  val_diff IS NOT NULL\r\n  AND sec_diff > 0\r\nORDER BY\r\n  time ASC"
+                          sql:
+                            columns:
+                              - parameters: []
+                                type: function
+                            groupBy:
+                              - property:
+                                  type: string
+                                type: groupBy
+                      refId: A
+                      hidden: false
+                  - kind: PanelQuery
+                    spec:
+                      query:
+                        kind: DataQuery
+                        group: influxdb
+                        version: v0
+                        spec:
+                          dataset: iox
+                          editorMode: code
+                          format: table
+                          rawQuery: true
+                          rawSql: "WITH deltas AS (\r\n  SELECT\r\n    time,\r\n    electricity_consumption - LAG(electricity_consumption) OVER (ORDER BY time) AS val_diff,\r\n    EXTRACT(EPOCH FROM (time - LAG(time) OVER (ORDER BY time))) AS sec_diff\r\n  FROM\r\n    utilities\r\n  WHERE\r\n    source = 'meter'\r\n    AND electricity_consumption IS NOT NULL\r\n    AND time <= $__timeTo()\r\n)\r\nSELECT\r\n  time,\r\n  val_diff / (sec_diff / 86400.0) AS \"Meter\"\r\nFROM\r\n  deltas\r\nWHERE\r\n  val_diff IS NOT NULL\r\n  AND sec_diff > 0\r\nORDER BY\r\n  time ASC"
+                          sql:
+                            columns:
+                              - parameters: []
+                                type: function
+                            groupBy:
+                              - property:
+                                  type: string
+                                type: groupBy
+                      refId: B
+                      hidden: false
+                transformations: []
+                queryOptions: {}
+            vizConfig:
+              kind: VizConfig
+              group: timeseries
+              version: 13.1.3
+              spec:
+                options:
+                  annotations:
+                    clustering: -1
+                    multiLane: false
+                  legend:
+                    calcs: []
+                    displayMode: list
+                    enableFacetedFilter: false
+                    overflow: ellipsis
+                    placement: bottom
+                    showLegend: true
+                  tooltip:
+                    hideZeros: false
+                    mode: single
+                    sort: none
+                fieldConfig:
+                  defaults:
+                    unit: kWh/day
+                    min: 0
+                    max: 8.76
+                    thresholds:
+                      mode: absolute
+                      steps:
+                        - value: 0
+                          color: light-blue
+                        - value: 2.76
+                          color: green
+                        - value: 3.96
+                          color: yellow
+                        - value: 5.16
+                          color: orange
+                        - value: 6.36
+                          color: red
+                    color:
+                      mode: palette-classic
+                    custom:
+                      axisBorderShow: false
+                      axisCenteredZero: false
+                      axisColorMode: text
+                      axisLabel: ''
+                      axisPlacement: auto
+                      barAlignment: 0
+                      barWidthFactor: 0.6
+                      drawStyle: line
+                      fillOpacity: 0
+                      gradientMode: none
+                      hideFrom:
+                        legend: false
+                        tooltip: false
+                        viz: false
+                      insertNulls: false
+                      lineInterpolation: stepBefore
+                      lineWidth: 1
+                      pointSize: 5
+                      scaleDistribution:
+                        type: linear
+                      showPoints: auto
+                      showValues: false
+                      spanNulls: false
+                      stacking:
+                        group: A
+                        mode: none
+                      thresholdsStyle:
+                        mode: area
+                  overrides:
+                    - matcher:
+                        id: byName
+                        scope: series
+                        options: Bill
+                      properties:
+                        - id: color
+                          value:
+                            fixedColor: text
+                            mode: fixed
+                    - matcher:
+                        id: byName
+                        scope: series
+                        options: Meter
+                      properties:
+                        - id: color
+                          value:
+                            fixedColor: orange
+                            mode: fixed
+        panel-5:
+          kind: Panel
+          spec:
+            id: 5
+            title: ''
+            description: ''
+            links: []
+            data:
+              kind: QueryGroup
+              spec:
+                queries:
+                  - kind: PanelQuery
+                    spec:
+                      query:
+                        kind: DataQuery
+                        group: influxdb
+                        version: v0
+                        spec:
+                          dataset: iox
+                          editorMode: code
+                          format: table
+                          rawQuery: true
+                          rawSql: "WITH deltas AS (\r\n  SELECT\r\n    time,\r\n    electricity_consumption - LAG(electricity_consumption) OVER (ORDER BY time) AS val_diff,\r\n    EXTRACT(EPOCH FROM (time - LAG(time) OVER (ORDER BY time))) AS sec_diff\r\n  FROM\r\n    utilities\r\n  WHERE\r\n    $__timeFilter(time)\r\n)\r\nSELECT\r\n  time,\r\n  val_diff / (sec_diff / 86400.0) AS \"Daily Consumption\"\r\nFROM\r\n  deltas\r\nWHERE\r\n  val_diff IS NOT NULL\r\n  AND sec_diff > 0\r\nORDER BY\r\n  time ASC"
+                          sql:
+                            columns:
+                              - parameters: []
+                                type: function
+                            groupBy:
+                              - property:
+                                  type: string
+                                type: groupBy
+                      refId: A
+                      hidden: false
+                transformations: []
+                queryOptions: {}
+            vizConfig:
+              kind: VizConfig
+              group: gauge
+              version: 13.1.3
+              spec:
+                options:
+                  barShape: flat
+                  barWidthFactor: 0.75
+                  effects:
+                    barGlow: false
+                    centerGlow: false
+                    gradient: false
+                  endpointMarker: point
+                  minVizHeight: 75
+                  minVizWidth: 75
+                  orientation: auto
+                  reduceOptions:
+                    calcs:
+                      - lastNotNull
+                    fields: /^Daily Consumption$/
+                    values: false
+                  segmentCount: 73
+                  segmentSpacing: 0.1
+                  shape: gauge
+                  showThresholdLabels: false
+                  showThresholdMarkers: true
+                  sizing: auto
+                  sparkline: false
+                  textMode: value_and_name
+                fieldConfig:
+                  defaults:
+                    unit: kWh/day
+                    decimals: 1
+                    min: 0
+                    max: 8.76
+                    thresholds:
+                      mode: absolute
+                      steps:
+                        - value: 0
+                          color: light-blue
+                        - value: 2.76
+                          color: green
+                        - value: 3.96
+                          color: yellow
+                        - value: 5.16
+                          color: orange
+                        - value: 6.36
+                          color: red
+                    color:
+                      mode: thresholds
+                  overrides: []
+        panel-6:
+          kind: Panel
+          spec:
+            id: 6
+            title: ''
+            description: ''
+            links: []
+            data:
+              kind: QueryGroup
+              spec:
+                queries:
+                  - kind: PanelQuery
+                    spec:
+                      query:
+                        kind: DataQuery
+                        group: influxdb
+                        version: v0
+                        spec:
+                          dataset: iox
+                          editorMode: code
+                          format: table
+                          rawQuery: true
+                          rawSql: "WITH deltas AS (\r\n  SELECT\r\n    time,\r\n    electricity_consumption - LAG(electricity_consumption) OVER (ORDER BY time) AS val_diff,\r\n    EXTRACT(EPOCH FROM (time - LAG(time) OVER (ORDER BY time))) AS sec_diff\r\n  FROM\r\n    utilities\r\n  WHERE\r\n    $__timeFilter(time)\r\n)\r\nSELECT\r\n  time,\r\n  (val_diff / (sec_diff / 3600.0)) * 1000.0 AS \"Average Power\"\r\nFROM\r\n  deltas\r\nWHERE\r\n  val_diff IS NOT NULL\r\n  AND sec_diff > 0\r\nORDER BY\r\n  time ASC"
+                          sql:
+                            columns:
+                              - parameters: []
+                                type: function
+                            groupBy:
+                              - property:
+                                  type: string
+                                type: groupBy
+                      refId: A
+                      hidden: false
+                transformations: []
+                queryOptions: {}
+            vizConfig:
+              kind: VizConfig
+              group: gauge
+              version: 13.1.3
+              spec:
+                options:
+                  barShape: flat
+                  barWidthFactor: 0.75
+                  effects:
+                    barGlow: false
+                    centerGlow: false
+                    gradient: false
+                  endpointMarker: point
+                  minVizHeight: 75
+                  minVizWidth: 75
+                  orientation: auto
+                  reduceOptions:
+                    calcs:
+                      - lastNotNull
+                    fields: /^Average Power$/
+                    values: false
+                  segmentCount: 73
+                  segmentSpacing: 0.1
+                  shape: gauge
+                  showThresholdLabels: false
+                  showThresholdMarkers: true
+                  sizing: auto
+                  sparkline: false
+                  textMode: value_and_name
+                fieldConfig:
+                  defaults:
+                    unit: watt
+                    decimals: 0
+                    min: 0
+                    max: 365
+                    thresholds:
+                      mode: absolute
+                      steps:
+                        - value: 0
+                          color: light-blue
+                        - value: 115
+                          color: green
+                        - value: 165
+                          color: yellow
+                        - value: 215
+                          color: orange
+                        - value: 265
+                          color: red
+                    color:
+                      mode: thresholds
+                  overrides: []
+        panel-7:
+          kind: Panel
+          spec:
+            id: 7
+            title: ''
+            description: ''
+            links: []
+            data:
+              kind: QueryGroup
+              spec:
+                queries:
+                  - kind: PanelQuery
+                    spec:
+                      query:
+                        kind: DataQuery
+                        group: influxdb
+                        version: v0
+                        spec:
+                          dataset: iox
+                          editorMode: code
+                          format: table
+                          rawQuery: true
+                          rawSql: "WITH deltas AS (\r\n  SELECT\r\n    time,\r\n    water_import - LAG(water_import) OVER (ORDER BY time) AS val_diff,\r\n    EXTRACT(EPOCH FROM (time - LAG(time) OVER (ORDER BY time))) AS sec_diff\r\n  FROM\r\n    utilities\r\n  WHERE\r\n    source = 'bill'\r\n    AND water_import IS NOT NULL\r\n    AND time <= $__timeTo()\r\n)\r\nSELECT\r\n  time,\r\n  (val_diff / (sec_diff / 86400.0)) * 1000 AS \"Bill\"\r\nFROM\r\n  deltas\r\nWHERE\r\n  val_diff IS NOT NULL\r\n  AND sec_diff > 0\r\nORDER BY\r\n  time ASC"
+                          sql:
+                            columns:
+                              - parameters: []
+                                type: function
+                            groupBy:
+                              - property:
+                                  type: string
+                                type: groupBy
+                      refId: A
+                      hidden: false
+                  - kind: PanelQuery
+                    spec:
+                      query:
+                        kind: DataQuery
+                        group: influxdb
+                        version: v0
+                        spec:
+                          dataset: iox
+                          editorMode: code
+                          format: table
+                          rawQuery: true
+                          rawSql: "WITH deltas AS (\r\n  SELECT\r\n    time,\r\n    water_import - LAG(water_import) OVER (ORDER BY time) AS val_diff,\r\n    EXTRACT(EPOCH FROM (time - LAG(time) OVER (ORDER BY time))) AS sec_diff\r\n  FROM\r\n    utilities\r\n  WHERE\r\n    source = 'meter'\r\n    AND water_import IS NOT NULL\r\n    AND time <= $__timeTo()\r\n)\r\nSELECT\r\n  time,\r\n  (val_diff / (sec_diff / 86400.0)) * 1000 AS \"Meter\"\r\nFROM\r\n  deltas\r\nWHERE\r\n  val_diff IS NOT NULL\r\n  AND sec_diff > 0\r\nORDER BY\r\n  time ASC"
+                          sql:
+                            columns:
+                              - parameters: []
+                                type: function
+                            groupBy:
+                              - property:
+                                  type: string
+                                type: groupBy
+                      refId: B
+                      hidden: false
+                transformations: []
+                queryOptions: {}
+            vizConfig:
+              kind: VizConfig
+              group: timeseries
+              version: 13.1.3
+              spec:
+                options:
+                  annotations:
+                    clustering: -1
+                    multiLane: false
+                  legend:
+                    calcs: []
+                    displayMode: list
+                    enableFacetedFilter: false
+                    overflow: ellipsis
+                    placement: bottom
+                    showLegend: true
+                  tooltip:
+                    hideZeros: false
+                    mode: single
+                    sort: none
+                fieldConfig:
+                  defaults:
+                    unit: L/day
+                    decimals: 0
+                    min: 0
+                    max: 270
+                    thresholds:
+                      mode: absolute
+                      steps:
+                        - value: 0
+                          color: green
+                        - value: 90
+                          color: red
+                    color:
+                      mode: palette-classic
+                    custom:
+                      axisBorderShow: false
+                      axisCenteredZero: false
+                      axisColorMode: text
+                      axisLabel: ''
+                      axisPlacement: auto
+                      barAlignment: 0
+                      barWidthFactor: 0.6
+                      drawStyle: line
+                      fillOpacity: 0
+                      gradientMode: none
+                      hideFrom:
+                        legend: false
+                        tooltip: false
+                        viz: false
+                      insertNulls: false
+                      lineInterpolation: stepBefore
+                      lineWidth: 1
+                      pointSize: 5
+                      scaleDistribution:
+                        type: linear
+                      showPoints: auto
+                      showValues: false
+                      spanNulls: false
+                      stacking:
+                        group: A
+                        mode: none
+                      thresholdsStyle:
+                        mode: area
+                  overrides:
+                    - matcher:
+                        id: byName
+                        scope: series
+                        options: Bill
+                      properties:
+                        - id: color
+                          value:
+                            fixedColor: text
+                            mode: fixed
+                    - matcher:
+                        id: byName
+                        scope: series
+                        options: Meter
+                      properties:
+                        - id: color
+                          value:
+                            fixedColor: blue
+                            mode: fixed
+        panel-8:
+          kind: Panel
+          spec:
+            id: 8
+            title: ''
+            description: ''
+            links: []
+            data:
+              kind: QueryGroup
+              spec:
+                queries:
+                  - kind: PanelQuery
+                    spec:
+                      query:
+                        kind: DataQuery
+                        group: influxdb
+                        version: v0
+                        spec:
+                          dataset: iox
+                          editorMode: code
+                          format: table
+                          rawQuery: true
+                          rawSql: "WITH deltas AS (\r\n  SELECT\r\n    time,\r\n    water_import - LAG(water_import) OVER (ORDER BY time) AS val_diff,\r\n    EXTRACT(EPOCH FROM (time - LAG(time) OVER (ORDER BY time))) AS sec_diff\r\n  FROM\r\n    utilities\r\n  WHERE\r\n    source = 'meter'\r\n    AND water_import IS NOT NULL\r\n    AND time <= $__timeTo()\r\n)\r\nSELECT\r\n  time,\r\n  (val_diff / (sec_diff / 86400.0)) * 1000 AS \"Daily Import\"\r\nFROM\r\n  deltas\r\nWHERE\r\n  val_diff IS NOT NULL\r\n  AND sec_diff > 0\r\nORDER BY\r\n  time ASC"
+                          sql:
+                            columns:
+                              - parameters: []
+                                type: function
+                            groupBy:
+                              - property:
+                                  type: string
+                                type: groupBy
+                      refId: A
+                      hidden: false
+                transformations: []
+                queryOptions: {}
+            vizConfig:
+              kind: VizConfig
+              group: gauge
+              version: 13.1.3
+              spec:
+                options:
+                  barShape: flat
+                  barWidthFactor: 0.75
+                  effects:
+                    barGlow: false
+                    centerGlow: false
+                    gradient: false
+                  endpointMarker: point
+                  minVizHeight: 75
+                  minVizWidth: 75
+                  orientation: auto
+                  reduceOptions:
+                    calcs:
+                      - lastNotNull
+                    fields: /^Daily Import$/
+                    values: false
+                  segmentCount: 45
+                  segmentSpacing: 0.1
+                  shape: gauge
+                  showThresholdLabels: false
+                  showThresholdMarkers: true
+                  sizing: auto
+                  sparkline: false
+                  textMode: value_and_name
+                fieldConfig:
+                  defaults:
+                    unit: L/day
+                    decimals: 0
+                    min: 0
+                    max: 270
+                    thresholds:
+                      mode: absolute
+                      steps:
+                        - value: 0
+                          color: green
+                        - value: 90
+                          color: red
+                    color:
+                      mode: thresholds
+                  overrides: []
+        panel-9:
+          kind: Panel
+          spec:
+            id: 9
+            title: ''
+            description: >-
+              How much of the cycle's allowance will remain at the next predicted
+              billing date, assuming water is consumed at the allowance's rate from
+              the latest meter reading until the next bill.
+
+
+              A negative value indicates the volume of higher-rate tariff consumed.
+
+
+              A positive value indicates the volume of lower-rate tariff still
+              available.
+            links: []
+            data:
+              kind: QueryGroup
+              spec:
+                queries:
+                  - kind: PanelQuery
+                    spec:
+                      query:
+                        kind: DataQuery
+                        group: influxdb
+                        version: v0
+                        spec:
+                          dataset: iox
+                          editorMode: code
+                          format: table
+                          rawQuery: true
+                          rawSql: "WITH constants AS (\r\n  SELECT \r\n    60.0 AS billing_period_duration_days,\r\n    33.0 AS annual_allowance_m3\r\n),\r\nbase_data AS (\r\n  SELECT \r\n    time,\r\n    water_import,\r\n    source\r\n  FROM \"utilities\"\r\n  WHERE \r\n    time >= NOW() - INTERVAL '180 days'\r\n    AND water_import IS NOT NULL\r\n    AND source IN ('bill', 'meter')\r\n),\r\nlast_bill AS (\r\n  SELECT \r\n    time AS last_bill_time,\r\n    water_import AS last_bill_value\r\n  FROM\r\n    base_data\r\n  WHERE\r\n    source = 'bill'\r\n  ORDER BY\r\n    time DESC\r\n  LIMIT\r\n    1\r\n),\r\nlast_record AS (\r\n  SELECT \r\n    water_import AS last_record_value\r\n  FROM\r\n    base_data\r\n  ORDER BY\r\n    time DESC\r\n  LIMIT\r\n    1\r\n),\r\ncalculations AS (\r\n  SELECT\r\n    b.last_bill_time,\r\n    b.last_bill_value,\r\n    r.last_record_value,\r\n    b.last_bill_time + INTERVAL '60 days' AS next_bill_time,\r\n    EXTRACT(EPOCH FROM ((b.last_bill_time + INTERVAL '60 days') - NOW())) / 86400.0 AS days_until_next_bill,\r\n    c.annual_allowance_m3 * (c.billing_period_duration_days / 365.0) AS cycle_allowance_m3,\r\n    c.annual_allowance_m3 / 365.0 AS daily_allowance_m3,\r\n    r.last_record_value - b.last_bill_value AS cycle_consumed_m3\r\n  FROM\r\n    last_bill b\r\n  CROSS JOIN\r\n    last_record r\r\n  CROSS JOIN\r\n    constants c\r\n),\r\nsurplus AS (\r\n  SELECT\r\n    *,\r\n    cycle_allowance_m3 - cycle_consumed_m3 AS cycle_remaining_m3,\r\n    ((cycle_allowance_m3 - cycle_consumed_m3) - (daily_allowance_m3 * days_until_next_bill)) * 1000.0 AS projected_surplus_liters\r\n  FROM\r\n    calculations\r\n)\r\nSELECT\r\n  last_bill_time,\r\n  last_bill_value,\r\n  last_record_value,\r\n  next_bill_time,\r\n  days_until_next_bill,\r\n  cycle_allowance_m3,\r\n  daily_allowance_m3,\r\n  cycle_consumed_m3,\r\n  cycle_remaining_m3,\r\n  projected_surplus_liters,\r\n  projected_surplus_liters AS \"Projected Surplus\"\r\nFROM\r\n  surplus;"
+                          sql:
+                            columns:
+                              - parameters: []
+                                type: function
+                            groupBy:
+                              - property:
+                                  type: string
+                                type: groupBy
+                      refId: A
+                      hidden: false
+                transformations: []
+                queryOptions: {}
+            vizConfig:
+              kind: VizConfig
+              group: gauge
+              version: 13.1.3
+              spec:
+                options:
+                  barShape: flat
+                  barWidthFactor: 0.75
+                  effects:
+                    barGlow: false
+                    centerGlow: false
+                    gradient: false
+                  endpointMarker: point
+                  minVizHeight: 75
+                  minVizWidth: 75
+                  neutral: 0
+                  orientation: auto
+                  reduceOptions:
+                    calcs:
+                      - lastNotNull
+                    fields: /^Projected Surplus$/
+                    values: false
+                  segmentCount: 50
+                  segmentSpacing: 0.1
+                  shape: gauge
+                  showThresholdLabels: false
+                  showThresholdMarkers: true
+                  sizing: auto
+                  sparkline: false
+                  textMode: value_and_name
+                fieldConfig:
+                  defaults:
+                    unit: litre
+                    decimals: 0
+                    min: -3000
+                    max: 3000
+                    thresholds:
+                      mode: absolute
+                      steps:
+                        - value: 0
+                          color: red
+                        - value: 0
+                          color: orange
+                        - value: 1000
+                          color: green
+                    color:
+                      mode: thresholds
+                  overrides: []
+      layout:
+        kind: TabsLayout
+        spec:
+          tabs:
+            - kind: TabsLayoutTab
+              spec:
+                title: Daily Averages
+                layout:
+                  kind: RowsLayout
+                  spec:
+                    rows:
+                      - kind: RowsLayoutRow
+                        spec:
+                          title: ☀️ Electricity Generation
+                          collapse: false
+                          layout:
+                            kind: GridLayout
+                            spec:
+                              items:
+                                - kind: GridLayoutItem
+                                  spec:
+                                    x: 0
+                                    'y': 0
+                                    width: 14
+                                    height: 6
+                                    element:
+                                      kind: ElementReference
+                                      name: panel-1
+                                - kind: GridLayoutItem
+                                  spec:
+                                    x: 14
+                                    'y': 0
+                                    width: 5
+                                    height: 6
+                                    element:
+                                      kind: ElementReference
+                                      name: panel-2
+                                - kind: GridLayoutItem
+                                  spec:
+                                    x: 19
+                                    'y': 0
+                                    width: 5
+                                    height: 6
+                                    element:
+                                      kind: ElementReference
+                                      name: panel-3
+                      - kind: RowsLayoutRow
+                        spec:
+                          title: ⚡ Electricity Consumption
+                          collapse: false
+                          layout:
+                            kind: GridLayout
+                            spec:
+                              items:
+                                - kind: GridLayoutItem
+                                  spec:
+                                    x: 0
+                                    'y': 0
+                                    width: 14
+                                    height: 6
+                                    element:
+                                      kind: ElementReference
+                                      name: panel-4
+                                - kind: GridLayoutItem
+                                  spec:
+                                    x: 14
+                                    'y': 0
+                                    width: 5
+                                    height: 6
+                                    element:
+                                      kind: ElementReference
+                                      name: panel-5
+                                - kind: GridLayoutItem
+                                  spec:
+                                    x: 19
+                                    'y': 0
+                                    width: 5
+                                    height: 6
+                                    element:
+                                      kind: ElementReference
+                                      name: panel-6
+                      - kind: RowsLayoutRow
+                        spec:
+                          title: 💧 Water Import
+                          collapse: false
+                          layout:
+                            kind: GridLayout
+                            spec:
+                              items:
+                                - kind: GridLayoutItem
+                                  spec:
+                                    x: 0
+                                    'y': 0
+                                    width: 14
+                                    height: 6
+                                    element:
+                                      kind: ElementReference
+                                      name: panel-7
+                                - kind: GridLayoutItem
+                                  spec:
+                                    x: 14
+                                    'y': 0
+                                    width: 5
+                                    height: 6
+                                    element:
+                                      kind: ElementReference
+                                      name: panel-8
+                                - kind: GridLayoutItem
+                                  spec:
+                                    x: 19
+                                    'y': 0
+                                    width: 5
+                                    height: 6
+                                    element:
+                                      kind: ElementReference
+                                      name: panel-9
+            - kind: TabsLayoutTab
+              spec:
+                title: Electricity Profit/Loss
+                layout:
+                  kind: RowsLayout
+                  spec:
+                    rows:
+                      - kind: RowsLayoutRow
+                        spec:
+                          title: Electricity Net (Generation minus Consumption)
+                          collapse: false
+                          layout:
+                            kind: GridLayout
+                            spec:
+                              items:
+                                - kind: GridLayoutItem
+                                  spec:
+                                    x: 0
+                                    'y': 0
+                                    width: 14
+                                    height: 6
+                                    element:
+                                      kind: ElementReference
+                                      name: panel-10
+                                - kind: GridLayoutItem
+                                  spec:
+                                    x: 14
+                                    'y': 0
+                                    width: 5
+                                    height: 6
+                                    element:
+                                      kind: ElementReference
+                                      name: panel-11
+                      - kind: RowsLayoutRow
+                        spec:
+                          title: Electricity Ratio (Generation over Consumption)
+                          collapse: false
+                          layout:
+                            kind: GridLayout
+                            spec:
+                              items:
+                                - kind: GridLayoutItem
+                                  spec:
+                                    x: 0
+                                    'y': 0
+                                    width: 14
+                                    height: 6
+                                    element:
+                                      kind: ElementReference
+                                      name: panel-12
+                                - kind: GridLayoutItem
+                                  spec:
+                                    x: 14
+                                    'y': 0
+                                    width: 5
+                                    height: 6
+                                    element:
+                                      kind: ElementReference
+                                      name: panel-13
+                      - kind: RowsLayoutRow
+                        spec:
+                          title: >-
+                            Monthly Profit (extrapolated to 30 days and billing
+                            rates applied)
+                          collapse: false
+                          layout:
+                            kind: GridLayout
+                            spec:
+                              items:
+                                - kind: GridLayoutItem
+                                  spec:
+                                    x: 0
+                                    'y': 0
+                                    width: 14
+                                    height: 6
+                                    element:
+                                      kind: ElementReference
+                                      name: panel-14
+                                - kind: GridLayoutItem
+                                  spec:
+                                    x: 14
+                                    'y': 0
+                                    width: 5
+                                    height: 6
+                                    element:
+                                      kind: ElementReference
+                                      name: panel-15
+            - kind: TabsLayoutTab
+              spec:
+                title: Absolute Values
+                layout:
+                  kind: GridLayout
+                  spec:
+                    items:
+                      - kind: GridLayoutItem
+                        spec:
+                          x: 0
+                          'y': 0
+                          width: 6
+                          height: 3
+                          element:
+                            kind: ElementReference
+                            name: panel-16
+                      - kind: GridLayoutItem
+                        spec:
+                          x: 6
+                          'y': 0
+                          width: 18
+                          height: 3
+                          element:
+                            kind: ElementReference
+                            name: panel-17
+                      - kind: GridLayoutItem
+                        spec:
+                          x: 0
+                          'y': 3
+                          width: 6
+                          height: 3
+                          element:
+                            kind: ElementReference
+                            name: panel-18
+                      - kind: GridLayoutItem
+                        spec:
+                          x: 6
+                          'y': 3
+                          width: 12
+                          height: 3
+                          element:
+                            kind: ElementReference
+                            name: panel-19
+                      - kind: GridLayoutItem
+                        spec:
+                          x: 18
+                          'y': 3
+                          width: 6
+                          height: 3
+                          element:
+                            kind: ElementReference
+                            name: panel-20
+                      - kind: GridLayoutItem
+                        spec:
+                          x: 0
+                          'y': 6
+                          width: 6
+                          height: 5
+                          element:
+                            kind: ElementReference
+                            name: panel-21
+                      - kind: GridLayoutItem
+                        spec:
+                          x: 6
+                          'y': 6
+                          width: 6
+                          height: 5
+                          element:
+                            kind: ElementReference
+                            name: panel-22
+                      - kind: GridLayoutItem
+                        spec:
+                          x: 12
+                          'y': 6
+                          width: 6
+                          height: 5
+                          element:
+                            kind: ElementReference
+                            name: panel-23
+                      - kind: GridLayoutItem
+                        spec:
+                          x: 18
+                          'y': 6
+                          width: 6
+                          height: 5
+                          element:
+                            kind: ElementReference
+                            name: panel-24
+                      - kind: GridLayoutItem
+                        spec:
+                          x: 0
+                          'y': 11
+                          width: 24
+                          height: 3
+                          element:
+                            kind: ElementReference
+                            name: panel-25
+                      - kind: GridLayoutItem
+                        spec:
+                          x: 0
+                          'y': 14
+                          width: 24
+                          height: 5
+                          element:
+                            kind: ElementReference
+                            name: panel-26
+                      - kind: GridLayoutItem
+                        spec:
+                          x: 0
+                          'y': 19
+                          width: 24
+                          height: 12
+                          element:
+                            kind: ElementReference
+                            name: panel-27
+      links: []
+      liveNow: false
+      preload: false
+      tags: []
+      timeSettings:
+        timezone: browser
+        from: now-6M
+        to: now
+        autoRefresh: 1m
+        autoRefreshIntervals:
+          - 5s
+          - 10s
+          - 30s
+          - 1m
+          - 5m
+          - 15m
+          - 30m
+          - 1h
+          - 2h
+          - 1d
+        hideTimepicker: false
+        fiscalYearStartMonth: 0
+      title: Utilities
+      variables:
+        - kind: SwitchVariable
+          spec:
+            name: showCloudCover
+            current: 'true'
+            enabledValue: 'true'
+            disabledValue: 'false'
+            label: Show Cloud Cover
+            hide: dontHide
+            skipUrlSync: false
+      preferences:
+        layout:
+          kind: GridLayout
+          spec:
+            items: []

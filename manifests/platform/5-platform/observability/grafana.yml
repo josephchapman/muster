@@ -1,0 +1,41 @@
+---
+apiVersion: grafana.integreatly.org/v1beta1
+kind: Grafana
+metadata:
+  name: grafana
+  namespace: observability
+  labels:
+    dashboards: "grafana"    # change this from dashboards to something more general
+spec:
+  ingress:
+    metadata:
+      annotations:
+        cert-manager.io/cluster-issuer: muster-ca
+        cert-manager.io/common-name: grafana.local
+        cert-manager.io/subject-organizations: Muster
+        cert-manager.io/subject-organizationalunits: Tech
+    spec:
+      ingressClassName: traefik
+      tls:
+        - hosts:
+            - grafana.local
+          secretName: grafana-tls
+      rules:
+        - host: grafana.local
+          http:
+            paths:
+              - path: /
+                pathType: Prefix
+                backend:
+                  service:
+                    name: grafana-service
+                    port:
+                      number: 3000
+  config:
+    auth:                         # [auth]
+      disable_login_form: "true"  # Set to true to disable (hide) the login form, useful if you use OAuth, defaults to false
+    auth.anonymous:               # [auth.anonymous]
+      enabled: "true"             # enable anonymous access
+      org_role: "Admin"           # specify role for unauthenticated users
+    users:                        # [users]
+      allow_sign_up: "false"      # disable user signup / registration
