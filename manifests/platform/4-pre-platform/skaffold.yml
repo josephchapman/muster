@@ -2,7 +2,7 @@
 apiVersion: skaffold/v4beta8
 kind: Config
 metadata:
-  name: 4-operators
+  name: 4-pre-platform
 manifests:
   kustomize:
     paths:
