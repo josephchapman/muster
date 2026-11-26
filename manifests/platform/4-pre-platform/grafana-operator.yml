@@ -1,0 +1,21 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: observability
+---
+apiVersion: helm.crossplane.io/v1beta1
+kind: Release
+metadata:
+  name: grafana-operator
+  namespace: observability
+spec:
+  providerConfigRef:
+    name: provider-helm
+  forProvider:
+    chart:
+      name: grafana-operator
+      repository: https://grafana.github.io/helm-charts
+      version: "5.25.0"
+    namespace: observability
+    skipCreateNamespace: true

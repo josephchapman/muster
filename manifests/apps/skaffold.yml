@@ -1,0 +1,13 @@
+---
+apiVersion: skaffold/v4beta8
+kind: Config
+metadata:
+  name: 6-apps
+manifests:
+  kustomize:
+    paths:
+      - composition
+      - utilities
+      - weather
+deploy:
+  kubectl: {}

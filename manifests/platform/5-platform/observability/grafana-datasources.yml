@@ -1,0 +1,61 @@
+---
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDatasource
+metadata:
+  name: influxdb3-sql
+  namespace: observability
+spec:
+  instanceSelector:
+    matchLabels:
+      dashboards: "grafana"
+  valuesFrom:
+    - targetPath: "secureJsonData.token"
+      valueFrom:
+        secretKeyRef:
+          name: "influxdb3"
+          key: "token.txt"
+  datasource:
+    name: InfluxDB3-SQL
+    type: influxdb
+    access: proxy
+    url: http://influxdb3-core:8181
+    isDefault: true
+    editable: false
+    jsonData:
+      dbName: default
+      insecureGrpc: true
+      pdcInjected: false
+      tlsSkipVerify: false
+      version: SQL
+    secureJsonData:
+      token: ${token.txt}
+---
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDatasource
+metadata:
+  name: influxdb3-fluxql
+  namespace: observability
+spec:
+  instanceSelector:
+    matchLabels:
+      dashboards: "grafana"
+  valuesFrom:
+    - targetPath: "secureJsonData.password"
+      valueFrom:
+        secretKeyRef:
+          name: "influxdb3"
+          key: "token.txt"
+  datasource:
+    name: InfluxDB3-FluxQL
+    type: influxdb
+    access: proxy
+    url: http://influxdb3-core:8181
+    user: placeholder
+    isDefault: false
+    editable: false
+    jsonData:
+      dbName: default
+      pdcInjected: false
+      version: InfluxQL
+    secureJsonData:
+      password: ${token.txt}

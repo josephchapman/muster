@@ -1,7 +1,7 @@
 {
-  "name": "Ubuntu",
-  "image": "ubuntu:jammy",
-  "remoteUser": "contend",
+  "name": "Muster",
+  "image": "ubuntu:resolute",
+  "remoteUser": "muster",
   "customizations": {
     "vscode": {
       "settings": {
@@ -16,18 +16,22 @@
     }
   },
   "features": {
+    "./src/000_utils/": {},
     "./src/argocd_cli/": {},
-    "./src/helm/": {},
+    "./src/docker/": {},
     "./src/kubectl/": {},
-    "./src/user/": {
-      "username": "contend"
-    },
-    "./src/utils/": {}
+    "./src/helm/": {},
+    "./src/skaffold/": {},
+    "./src/vault/": {},
+    "./src/zzz_user/": {
+      "username": "muster",
+      "docker_group": true
+    }
   },
-  "mounts": [
-    "source=${env:SSH_AUTH_SOCK},target=/ssh-agent,type=bind"
+  "runArgs": [
+    "--network=host" // required for kubectl to work properly with the host's kubeconfig
   ],
-  "remoteEnv": {
-    "SSH_AUTH_SOCK": "/ssh-agent"
-  }
+  "mounts": [
+    "type=bind,source=${env:HOME}/.kube/config,target=/home/muster/.kube/config"
+  ]
 }

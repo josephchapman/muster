@@ -1,0 +1,19 @@
+---
+apiVersion: helm.crossplane.io/v1beta1
+kind: Release
+metadata:
+  name: cert-manager
+  namespace: netsec
+spec:
+  providerConfigRef:
+    name: provider-helm
+  forProvider:
+    chart:
+      name: cert-manager
+      repository: https://charts.jetstack.io
+      version: v1.21.3
+    namespace: netsec
+    skipCreateNamespace: true
+    values:
+      crds:
+        enabled: true

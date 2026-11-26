@@ -1,0 +1,277 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: influxdb-token-access
+  namespace: observability
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: influxdb-token-access
+  namespace: observability
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["create", "get", "update", "patch", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: influxdb-token-access
+  namespace: observability
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: influxdb-token-access
+subjects:
+  - kind: ServiceAccount
+    name: influxdb-token-access
+    namespace: observability
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: generate-influxdb3-admin-token
+  namespace: observability
+spec:
+  template:
+    spec:
+      serviceAccountName: influxdb-token-access
+      restartPolicy: OnFailure
+      volumes:
+        - name: token-volume
+          emptyDir: {}
+      initContainers:
+        - name: generate-token
+          image: influxdb:3-core
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              influxdb3 create token \
+                --admin \
+                --offline \
+                --output-file /home/influxdb3/admin-token.json
+              
+              # Grant read permissions so the kubectl container can access it
+              chmod 644 /home/influxdb3/admin-token.json
+
+              # jq isn't on this image, so use awk to extract the token instead
+              TOKEN_STRING=$(awk -F '"' '$2 ~ /token/ { print $4 }' /home/influxdb3/admin-token.json)
+
+              # Save the token string to a file without a trailing newline
+              printf '%s' "${TOKEN_STRING}" > /home/influxdb3/token.txt
+
+              tee /home/influxdb3/config.json > /dev/null \
+              << EOF
+              {
+                "DEFAULT_INFLUX_SERVER": "http://influxdb3-core:8181/",
+                "DEFAULT_INFLUX_DATABASE": "my_database",
+                "DEFAULT_API_TOKEN": "${TOKEN_STRING}",
+                "DEFAULT_SERVER_NAME": "my_server"
+              }
+              EOF
+          volumeMounts:
+            - name: token-volume
+              mountPath: /home/influxdb3
+      containers:
+        - name: create-secret
+          image: bitnami/kubectl:latest
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              kubectl create secret generic influxdb3 \
+                --from-file=admin-token.json=/home/influxdb3/admin-token.json \
+                --from-file=config.json=/home/influxdb3/config.json \
+                --from-file=token.txt=/home/influxdb3/token.txt \
+                --dry-run=client -o yaml | kubectl apply -f -
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 256Mi
+          volumeMounts:
+            - name: token-volume
+              mountPath: /home/influxdb3
+
+---
+apiVersion: helm.crossplane.io/v1beta1
+kind: Release
+metadata:
+  name: influxdb3-core
+  namespace: observability
+spec:
+  providerConfigRef:
+    name: provider-helm
+  forProvider:
+    chart:
+      name: influxdb3-core
+      repository: https://helm.influxdata.com/
+      version: "0.1.1"
+    namespace: observability
+    skipCreateNamespace: true
+    values:
+      objectStorage:
+        type: file
+        file:
+          persistence:
+            size: 10Gi
+            storageClass: local-path
+      security:
+        auth:
+          adminToken:
+            existingSecret: influxdb3
+      ingress:
+        enabled: true
+        host: influxdb3-core.local
+        className: traefik
+        http:
+          annotations:
+            cert-manager.io/cluster-issuer: muster-ca
+            cert-manager.io/common-name: influxdb3-core.local
+            cert-manager.io/subject-organizations: Muster
+            cert-manager.io/subject-organizationalunits: Tech
+            # nginx.ingress.kubernetes.io/proxy-body-size: 100m
+        flight:
+          annotations:
+            cert-manager.io/cluster-issuer: muster-ca
+            cert-manager.io/common-name: influxdb3-core.local
+            cert-manager.io/subject-organizations: Muster
+            cert-manager.io/subject-organizationalunits: Tech
+            # nginx.ingress.kubernetes.io/backend-protocol: GRPC
+        tls:
+          - hosts:
+              - influxdb3-core.local
+            secretName: influxdb3-core-tls
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: influxdb3-explorer
+  namespace: observability
+  labels:
+    app: influxdb3-explorer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: influxdb3-explorer
+  template:
+    metadata:
+      labels:
+        app: influxdb3-explorer
+    spec:
+      serviceAccountName: influxdb-token-access
+      containers:
+      - name: ui
+        image: influxdata/influxdb3-ui:latest
+        args: [--mode=admin]
+        ports:
+        - containerPort: 8080
+          name: http
+        volumeMounts:
+        - name: config
+          mountPath: /app-root/config/config.json
+          subPath: config.json
+          readOnly: true
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 256Mi
+      volumes:
+      - name: config
+        secret:
+          secretName: influxdb3
+          items:
+          - key: config.json
+            path: config.json
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: influxdb3-explorer-service
+  namespace: observability
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8080
+    targetPort: 8080
+    protocol: TCP
+  selector:
+    app: influxdb3-explorer
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: influxdb3-explorer
+  namespace: observability
+  annotations:
+    cert-manager.io/cluster-issuer: muster-ca
+    cert-manager.io/common-name: influxdb3-ui.local
+    cert-manager.io/subject-organizations: Muster
+    cert-manager.io/subject-organizationalunits: Tech
+spec:
+  ingressClassName: traefik
+  rules:
+  - host: influxdb3-ui.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: influxdb3-explorer-service
+            port:
+              number: 8080
+  tls:
+    - hosts:
+        - influxdb3-ui.local
+      secretName: influxdb3-ui-tls
+---
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: create-influxdb3-database
+  namespace: observability
+  # annotations:
+  #   argocd.argoproj.io/hook: PostSync
+  #   argocd.argoproj.io/hook-delete-policy: HookSucceeded
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: create-database
+          image: influxdb:3-core
+          command: ["influxdb3"]
+          args: ["create", "database"]
+          env:
+            - name: INFLUXDB3_HOST_URL
+              value: "http://influxdb3-core:8181"
+            - name: INFLUXDB3_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: influxdb3
+                  key: token.txt
+            - name: INFLUXDB3_DATABASE_NAME
+              value: "default"
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 256Mi

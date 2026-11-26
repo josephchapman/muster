@@ -1,0 +1,74 @@
+---
+apiVersion: helm.crossplane.io/v1beta1
+kind: Release
+metadata:
+  name: telegraf
+  namespace: observability
+spec:
+  providerConfigRef:
+    name: provider-helm
+  forProvider:
+    chart:
+      name: telegraf
+      repository: https://helm.influxdata.com/
+      version: "1.8.78"
+    namespace: observability
+    skipCreateNamespace: true
+    values:
+      args:
+        - "--config"
+        - "/etc/telegraf/telegraf.conf"
+        - "--config"
+        - "http://telegraf-config-service.observability.svc.cluster.local/telegraf.conf"
+        - "--config-url-watch-interval"
+        - "30s"
+        - "--config-url-retry-attempts"
+        - "-1"
+      service:
+        enabled: false    # true fails because ports missing on svc
+      env:
+        - name: INFLUX_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: influxdb3
+              key: token.txt
+      envFromSecret: telegraf-env
+      config:
+        agent:
+          interval: "10m"
+          round_interval: false
+          metric_batch_size: 1000
+          metric_buffer_limit: 10000
+          collection_jitter: "0s"
+          flush_jitter: "0s"
+          precision: ""
+          hostname: ""
+          omit_hostname: true
+        inputs:
+          - internal:
+              collect_memstats: false
+        outputs:
+          - influxdb:
+              urls:
+                - "http://influxdb3-core:8181"
+              http_headers:
+                Authorization: "Token ${INFLUX_TOKEN}"
+              skip_database_creation: true
+              database: "default"
+      # volumes:
+      #   - name: telegraf-composition
+      #     configMap:
+      #       name: telegraf-composition
+      #   - name: telegraf-utilities
+      #     configMap:
+      #       name: telegraf-utilities
+      #   - name: telegraf-weather
+      #     configMap:
+      #       name: telegraf-weather
+      # volumeMounts:
+      #   - name: telegraf-composition
+      #     mountPath: /etc/telegraf/telegraf.d/composition.conf
+      #   - name: telegraf-utilities
+      #     mountPath: /etc/telegraf/telegraf.d/utilities.conf
+      #   - name: telegraf-weather
+      #     mountPath: /etc/telegraf/telegraf.d/weather.conf
