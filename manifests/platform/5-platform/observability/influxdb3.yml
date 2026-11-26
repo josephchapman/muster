@@ -72,7 +72,7 @@ spec:
               << EOF
               {
                 "DEFAULT_INFLUX_SERVER": "http://influxdb3-core:8181/",
-                "DEFAULT_INFLUX_DATABASE": "my_database",
+                "DEFAULT_INFLUX_DATABASE": "observability",
                 "DEFAULT_API_TOKEN": "${TOKEN_STRING}",
                 "DEFAULT_SERVER_NAME": "my_server"
               }
@@ -139,14 +139,12 @@ spec:
             cert-manager.io/common-name: influxdb3-core.local
             cert-manager.io/subject-organizations: Muster
             cert-manager.io/subject-organizationalunits: Tech
-            # nginx.ingress.kubernetes.io/proxy-body-size: 100m
         flight:
           annotations:
             cert-manager.io/cluster-issuer: muster-ca
             cert-manager.io/common-name: influxdb3-core.local
             cert-manager.io/subject-organizations: Muster
             cert-manager.io/subject-organizationalunits: Tech
-            # nginx.ingress.kubernetes.io/backend-protocol: GRPC
         tls:
           - hosts:
               - influxdb3-core.local
@@ -246,9 +244,9 @@ kind: Job
 metadata:
   name: create-influxdb3-database
   namespace: observability
-  # annotations:
-  #   argocd.argoproj.io/hook: PostSync
-  #   argocd.argoproj.io/hook-delete-policy: HookSucceeded
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded
 spec:
   template:
     spec:
@@ -267,7 +265,7 @@ spec:
                   name: influxdb3
                   key: token.txt
             - name: INFLUXDB3_DATABASE_NAME
-              value: "default"
+              value: "observability"
           resources:
             limits:
               cpu: 500m

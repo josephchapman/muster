@@ -54,7 +54,7 @@ spec:
               http_headers:
                 Authorization: "Token ${INFLUX_TOKEN}"
               skip_database_creation: true
-              database: "default"
+              database: "observability"
       # volumes:
       #   - name: telegraf-composition
       #     configMap:
