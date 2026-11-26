@@ -17,7 +17,7 @@
   },
   "features": {
     "./src/000_utils/": {},
-    // "./src/argocd_cli/": {},
+    "./src/argocd_cli/": {},
     "./src/docker/": {},
     "./src/kubectl/": {},
     "./src/helm/": {},
