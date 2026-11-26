@@ -22,7 +22,7 @@ spec:
     isDefault: true
     editable: false
     jsonData:
-      dbName: default
+      dbName: observability
       insecureGrpc: true
       pdcInjected: false
       tlsSkipVerify: false
@@ -54,7 +54,7 @@ spec:
     isDefault: false
     editable: false
     jsonData:
-      dbName: default
+      dbName: observability
       pdcInjected: false
       version: InfluxQL
     secureJsonData:
